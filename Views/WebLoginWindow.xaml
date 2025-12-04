@@ -1,0 +1,44 @@
+<Window x:Class="FFXIVSimpleLauncher.Views.WebLoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv2="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="FFXIV Login"
+        Height="700" Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="0" Background="#2D2D30" Padding="10">
+            <TextBlock x:Name="StatusText"
+                       Text="Loading..."
+                       Foreground="White"
+                       FontSize="12"/>
+        </Border>
+
+        <!-- WebView2 - Source set programmatically after environment initialization -->
+        <wv2:WebView2 x:Name="WebView"
+                      Grid.Row="1"/>
+
+        <!-- Bottom Bar -->
+        <Border Grid.Row="2" Background="#2D2D30" Padding="10">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="CancelButton"
+                        Content="Cancel"
+                        Click="CancelButton_Click"
+                        Padding="20,5"
+                        Margin="0,0,10,0"/>
+                <Button x:Name="RefreshButton"
+                        Content="Refresh"
+                        Click="RefreshButton_Click"
+                        Padding="20,5"/>
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

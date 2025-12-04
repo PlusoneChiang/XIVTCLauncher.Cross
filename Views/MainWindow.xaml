@@ -1,0 +1,87 @@
+<Window x:Class="FFXIVSimpleLauncher.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        xmlns:viewmodels="clr-namespace:FFXIVSimpleLauncher.ViewModels"
+        mc:Ignorable="d"
+        Title="FFXIV Simple Launcher"
+        Height="500" Width="500"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResizeWithGrip"
+        Background="{DynamicResource MaterialDesignPaper}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontWeight="Medium"
+        FontFamily="{materialDesign:MaterialDesignFont}">
+
+    <Window.DataContext>
+        <viewmodels:MainViewModel />
+    </Window.DataContext>
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Title -->
+        <TextBlock Grid.Row="0"
+                   Text="FFXIV Simple Launcher"
+                   Style="{StaticResource MaterialDesignHeadline5TextBlock}"
+                   HorizontalAlignment="Center"
+                   Margin="0,0,0,16"/>
+
+        <!-- Subtitle -->
+        <TextBlock Grid.Row="1"
+                   Text="Taiwan Version"
+                   Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                   HorizontalAlignment="Center"
+                   Foreground="{DynamicResource MaterialDesignBodyLight}"
+                   Margin="0,0,0,24"/>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3" Orientation="Vertical" HorizontalAlignment="Center">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Login"
+                        Command="{Binding LoginCommand}"
+                        Style="{StaticResource MaterialDesignRaisedButton}"
+                        Width="140"
+                        Height="40"
+                        FontSize="16"
+                        Margin="0,0,16,0"/>
+
+                <Button Content="Settings"
+                        Command="{Binding OpenSettingsCommand}"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                        Width="140"
+                        Height="40"
+                        FontSize="16"/>
+            </StackPanel>
+
+            <Button Content="Test Inject (Skip Login)"
+                    Command="{Binding TestInjectCommand}"
+                    Style="{StaticResource MaterialDesignFlatButton}"
+                    Foreground="Orange"
+                    Height="32"
+                    FontSize="12"
+                    Margin="0,12,0,0"
+                    ToolTip="Launch game with fake session to test Dalamud injection (will disconnect at lobby)"/>
+        </StackPanel>
+
+        <!-- Status Message with Scroll -->
+        <ScrollViewer Grid.Row="4"
+                      VerticalScrollBarVisibility="Auto"
+                      MaxHeight="250"
+                      Margin="0,16,0,0">
+            <TextBlock Text="{Binding StatusMessage}"
+                       TextWrapping="Wrap"
+                       FontFamily="Consolas"
+                       FontSize="11"
+                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+        </ScrollViewer>
+    </Grid>
+</Window>
