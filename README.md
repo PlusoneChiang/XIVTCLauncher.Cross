@@ -55,56 +55,37 @@ C:\Program Files\USERJOY GAMES\FINAL FANTASY XIV TC
 
 ### Dalamud Plugin Support
 
-The launcher supports [Dalamud](https://github.com/goatcorp/Dalamud) plugin injection with Taiwan client compatibility.
+The launcher supports [Dalamud](https://github.com/goatcorp/Dalamud) plugin injection with Taiwan/Chinese client compatibility.
 
-#### Taiwan Client Forks
+#### Recommended Dalamud Fork
 
-Since the Taiwan client has different memory signatures from the global client, we maintain forked versions:
+For Taiwan/Chinese clients, we recommend using [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud):
 
-- **Dalamud TW**: [cycleapple/Dalamud (tw-client branch)](https://github.com/cycleapple/Dalamud/tree/tw-client)
-- **FFXIVClientStructs TW**: [cycleapple/FFXIVClientStructs (tw-client branch)](https://github.com/cycleapple/FFXIVClientStructs/tree/tw-client)
+- **Dalamud CN**: [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) - Maintained fork with Chinese client support
+- **FFXIVClientStructs**: Uses [Dalamud-DailyRoutines/FFXIVClientStructs](https://github.com/Dalamud-DailyRoutines/FFXIVClientStructs) as submodule
 
-#### Dependency Structure
-
-```
-cycleapple/Dalamud (tw-client)
-    │
-    ├── Taiwan client language support
-    ├── Updated DalamudStartInfo, DataManager, NetworkHandlers
-    │
-    └── lib/FFXIVClientStructs (submodule)
-            │
-            └── cycleapple/FFXIVClientStructs (tw-client)
-                    │
-                    └── Taiwan client signature fixes:
-                        - GameMain, LayoutWorld, PacketDispatcher
-                        - RaptureLogModule, UIModule, AtkUnitBase
-                        - AddonContextMenu, AgentActionDetail
-                        - ShellCommands, etc.
-```
-
-#### Building Dalamud TW from Source
+#### Building Dalamud from Source
 
 ```bash
 # Clone with submodules
-git clone --recursive -b tw-client https://github.com/cycleapple/Dalamud.git
+git clone --recursive https://github.com/yanmucorp/Dalamud.git
 
 # Or if already cloned, initialize submodules
 git submodule update --init --recursive
 
 # Build
-dotnet build
+dotnet build -c Release
 ```
 
 #### Usage
 
-1. Build Dalamud TW from source (see above) or download a pre-built release
-2. In Settings, set the **Local Dalamud Path** to your Dalamud build directory (e.g., `E:\FFXIV\XIVLauncher\Dalamud-TW\bin\Release`)
+1. Build Dalamud from source (see above) or download from [yanmucorp releases](https://github.com/yanmucorp/Dalamud/releases)
+2. In Settings, set the **Local Dalamud Path** to your Dalamud build directory (e.g., `E:\FFXIV\Dalamud\bin\Release`)
 3. Enable Dalamud in Settings
 4. Configure injection delay if needed (default works for most users)
-5. Launch the game - Assets will be automatically downloaded from goatcorp, then Dalamud will be injected
+5. Launch the game - Assets will be automatically downloaded from ottercorp, then Dalamud will be injected
 
-> **Note**: Only Dalamud assets are downloaded automatically. The Dalamud TW build must be provided locally.
+> **Note**: Assets are downloaded from [ottercorp](https://aonyx.ffxiv.wang) which is compatible with yanmucorp Dalamud. The Dalamud build must be provided locally.
 
 ## Disclaimer
 
@@ -124,7 +105,9 @@ If you use Dalamud plugins, please follow these guidelines:
 
 - [goatcorp/FFXIVQuickLauncher](https://github.com/goatcorp/FFXIVQuickLauncher) - Original inspiration and Dalamud framework
 - [goatcorp/Dalamud](https://github.com/goatcorp/Dalamud) - Plugin framework
-- [goatcorp/FFXIVClientStructs](https://github.com/goatcorp/FFXIVClientStructs) - Game client structures
+- [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) - Chinese client Dalamud fork
+- [ottercorp/FFXIVQuickLauncher](https://github.com/ottercorp/FFXIVQuickLauncher) - Chinese client launcher and asset server
+- [Dalamud-DailyRoutines/FFXIVClientStructs](https://github.com/Dalamud-DailyRoutines/FFXIVClientStructs) - Chinese client structures
 - [MaterialDesignInXAML](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) - UI toolkit
 
 ## Legal

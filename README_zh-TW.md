@@ -55,56 +55,37 @@ C:\Program Files\USERJOY GAMES\FINAL FANTASY XIV TC
 
 ## Dalamud 插件支援
 
-本啟動器支援 [Dalamud](https://github.com/goatcorp/Dalamud) 插件注入，並針對台灣版客戶端進行相容性調整。
+本啟動器支援 [Dalamud](https://github.com/goatcorp/Dalamud) 插件注入，並針對台灣/中國版客戶端進行相容性調整。
 
-### 台版專用分支
+### 推薦的 Dalamud 分支
 
-由於台灣版客戶端的記憶體特徵碼（signatures）與國際版不同，我們維護了專用的分支版本：
+針對台灣/中國版客戶端，我們推薦使用 [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud)：
 
-- **Dalamud TW**: [cycleapple/Dalamud (tw-client 分支)](https://github.com/cycleapple/Dalamud/tree/tw-client)
-- **FFXIVClientStructs TW**: [cycleapple/FFXIVClientStructs (tw-client 分支)](https://github.com/cycleapple/FFXIVClientStructs/tree/tw-client)
+- **Dalamud CN**: [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) - 持續維護的中文客戶端 Dalamud 分支
+- **FFXIVClientStructs**: 使用 [Dalamud-DailyRoutines/FFXIVClientStructs](https://github.com/Dalamud-DailyRoutines/FFXIVClientStructs) 作為子模組
 
-### 依賴結構
-
-```
-cycleapple/Dalamud (tw-client)
-    │
-    ├── 台灣版客戶端語言支援
-    ├── 更新 DalamudStartInfo, DataManager, NetworkHandlers
-    │
-    └── lib/FFXIVClientStructs (submodule)
-            │
-            └── cycleapple/FFXIVClientStructs (tw-client)
-                    │
-                    └── 台版特徵碼修復：
-                        - GameMain, LayoutWorld, PacketDispatcher
-                        - RaptureLogModule, UIModule, AtkUnitBase
-                        - AddonContextMenu, AgentActionDetail
-                        - ShellCommands 等
-```
-
-### 從原始碼編譯 Dalamud TW
+### 從原始碼編譯 Dalamud
 
 ```bash
 # 包含子模組一起複製
-git clone --recursive -b tw-client https://github.com/cycleapple/Dalamud.git
+git clone --recursive https://github.com/yanmucorp/Dalamud.git
 
 # 或者已經複製過，初始化子模組
 git submodule update --init --recursive
 
 # 編譯
-dotnet build
+dotnet build -c Release
 ```
 
 ### 使用方式
 
-1. 從原始碼編譯 Dalamud TW（參考上方步驟）或下載預編譯版本
-2. 在設定中，將 **Local Dalamud Path** 設為你的 Dalamud 編譯目錄（例如：`E:\FFXIV\XIVLauncher\Dalamud-TW\bin\Release`）
+1. 從原始碼編譯 Dalamud（參考上方步驟）或從 [yanmucorp releases](https://github.com/yanmucorp/Dalamud/releases) 下載
+2. 在設定中，將 **Local Dalamud Path** 設為你的 Dalamud 編譯目錄（例如：`E:\FFXIV\Dalamud\bin\Release`）
 3. 在設定中啟用 Dalamud
 4. 如有需要，調整注入延遲時間（預設值適用於大多數情況）
-5. 啟動遊戲 - Assets 會自動從 goatcorp 下載，然後 Dalamud 會被注入
+5. 啟動遊戲 - Assets 會自動從 ottercorp 下載，然後 Dalamud 會被注入
 
-> **注意**：只有 Dalamud assets 會自動下載。Dalamud TW 本體需要自行提供。
+> **注意**：Assets 從 [ottercorp](https://aonyx.ffxiv.wang) 下載，與 yanmucorp Dalamud 相容。Dalamud 本體需要自行提供。
 
 ## 這樣做安全嗎？
 
@@ -130,7 +111,9 @@ XIVTCLauncher 的使用可能不符合遊戲的服務條款。我們盡力讓它
 
 - [goatcorp/FFXIVQuickLauncher](https://github.com/goatcorp/FFXIVQuickLauncher) - 原始靈感來源與 Dalamud 框架
 - [goatcorp/Dalamud](https://github.com/goatcorp/Dalamud) - 插件框架
-- [goatcorp/FFXIVClientStructs](https://github.com/goatcorp/FFXIVClientStructs) - 遊戲客戶端結構
+- [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) - 中文客戶端 Dalamud 分支
+- [ottercorp/FFXIVQuickLauncher](https://github.com/ottercorp/FFXIVQuickLauncher) - 中文客戶端啟動器與 asset 伺服器
+- [Dalamud-DailyRoutines/FFXIVClientStructs](https://github.com/Dalamud-DailyRoutines/FFXIVClientStructs) - 中文客戶端結構
 - [MaterialDesignInXAML](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) - UI 工具包
 
 ## 法律聲明

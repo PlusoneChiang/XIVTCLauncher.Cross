@@ -4,24 +4,24 @@ namespace FFXIVSimpleLauncher.Dalamud;
 
 public class AssetInfo
 {
-    [JsonPropertyName("version")]
+    [JsonPropertyName("Version")]
     public int Version { get; set; }
 
-    [JsonPropertyName("packageUrl")]
+    [JsonPropertyName("PackageUrl")]
     public string? PackageUrl { get; set; }
 
-    [JsonPropertyName("assets")]
+    [JsonPropertyName("Assets")]
     public List<AssetEntry>? Assets { get; set; }
 }
 
 public class AssetEntry
 {
-    [JsonPropertyName("url")]
+    [JsonPropertyName("Url")]
     public string Url { get; set; } = string.Empty;
 
-    [JsonPropertyName("fileName")]
+    [JsonPropertyName("FileName")]
     public string FileName { get; set; } = string.Empty;
 
-    [JsonPropertyName("hash")]
+    [JsonPropertyName("Hash")]
     public string? Hash { get; set; }
 }

@@ -15,8 +15,8 @@ namespace FFXIVSimpleLauncher.Services;
 /// </summary>
 public class DalamudService
 {
-    // Official goatcorp asset server
-    private const string ASSET_URL = "https://kamori.goats.dev/Dalamud/Asset/Meta";
+    // Ottercorp (CN) asset server - compatible with yanmucorp Dalamud
+    private const string ASSET_URL = "https://aonyx.ffxiv.wang/Dalamud/Asset/Meta";
 
     private readonly DirectoryInfo _configDirectory;
     private readonly DirectoryInfo _runtimeDirectory;
@@ -369,7 +369,7 @@ public class DalamudService
                 pluginDirectory,
                 devPluginDirectory,
                 assetDir,
-                1, // Language: 1 = English
+                4, // Language: 4 = ChineseTraditional (Taiwan)
                 injectionDelay > 0 ? injectionDelay : 10000,
                 runtimePath
             );
