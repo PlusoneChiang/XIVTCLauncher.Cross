@@ -21,6 +21,7 @@ public class DalamudService
     private readonly DirectoryInfo _configDirectory;
     private readonly DirectoryInfo _runtimeDirectory;
     private readonly DirectoryInfo _assetDirectory;
+    private readonly DotNetRuntimeManager _runtimeManager;
 
     private FileInfo? _runner;
     private DirectoryInfo? _currentAssetDirectory;
@@ -30,6 +31,7 @@ public class DalamudService
         NotReady,
         Checking,
         Downloading,
+        DownloadingRuntime,
         Ready,
         Failed
     }
@@ -44,6 +46,16 @@ public class DalamudService
     /// </summary>
     public string? LocalDalamudPath { get; set; }
 
+    /// <summary>
+    /// Whether to use CN mirror for downloads (faster for CN/TW users)
+    /// </summary>
+    public bool UseCnMirror { get; set; } = true;
+
+    /// <summary>
+    /// Required .NET Runtime version for Dalamud (fetched from server)
+    /// </summary>
+    public string? RuntimeVersion => _runtimeManager.RequiredVersion;
+
     public DalamudService()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
@@ -52,6 +64,11 @@ public class DalamudService
         _configDirectory = new DirectoryInfo(Path.Combine(baseDir, "Config"));
         _runtimeDirectory = new DirectoryInfo(Path.Combine(baseDir, "Runtime"));
         _assetDirectory = new DirectoryInfo(Path.Combine(baseDir, "Assets"));
+
+        // Initialize runtime manager
+        _runtimeManager = new DotNetRuntimeManager(_runtimeDirectory, useCnMirror: true);
+        _runtimeManager.StatusChanged += status => StatusChanged?.Invoke(status);
+        _runtimeManager.ProgressChanged += progress => ProgressChanged?.Invoke(progress);
 
         EnsureDirectories();
     }
@@ -88,6 +105,11 @@ public class DalamudService
 
             ReportStatus("Validating local Dalamud build...");
             await Task.Run(() => ValidateLocalDalamudInternal());
+
+            // Ensure .NET Runtime is downloaded
+            State = DalamudState.DownloadingRuntime;
+            ReportStatus("Checking .NET Runtime...");
+            await _runtimeManager.EnsureRuntimeAsync();
 
             ReportStatus("Checking assets...");
             await EnsureAssetsAsync();
@@ -389,7 +411,15 @@ public class DalamudService
     /// </summary>
     private string? FindDotNetRuntime()
     {
-        // First check our local runtime directory
+        // First check our managed runtime (downloaded by DotNetRuntimeManager)
+        var managedRuntime = _runtimeManager.GetRuntimePath();
+        if (!string.IsNullOrEmpty(managedRuntime))
+        {
+            ReportStatus($"Using managed .NET Runtime: {managedRuntime}");
+            return managedRuntime;
+        }
+
+        // Fallback: check our local runtime directory manually
         if (_runtimeDirectory.Exists)
         {
             var hostFxr = _runtimeDirectory.GetDirectories("host", SearchOption.TopDirectoryOnly)
@@ -400,7 +430,7 @@ public class DalamudService
             }
         }
 
-        // Check XIVLauncher's runtime directory
+        // Fallback: check XIVLauncher's runtime directory
         var xivLauncherRuntime = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "XIVLauncher", "runtime");
@@ -409,20 +439,37 @@ public class DalamudService
             var hostFxr = Path.Combine(xivLauncherRuntime, "host", "fxr");
             if (Directory.Exists(hostFxr) && Directory.GetDirectories(hostFxr).Length > 0)
             {
+                ReportStatus($"Using XIVLauncher .NET Runtime: {xivLauncherRuntime}");
                 return xivLauncherRuntime;
             }
         }
 
-        // Check system .NET installation
+        // Fallback: check system .NET installation
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var systemDotNet = Path.Combine(programFiles, "dotnet");
         if (Directory.Exists(systemDotNet))
         {
+            ReportStatus($"Using system .NET Runtime: {systemDotNet}");
             return systemDotNet;
         }
 
         return null;
     }
+
+    /// <summary>
+    /// Check if the .NET Runtime is installed.
+    /// </summary>
+    public bool IsRuntimeInstalled() => _runtimeManager.IsRuntimeInstalled();
+
+    /// <summary>
+    /// Force re-download of the .NET Runtime.
+    /// </summary>
+    public async Task ForceUpdateRuntimeAsync() => await _runtimeManager.ForceUpdateAsync();
+
+    /// <summary>
+    /// Get the runtime directory path.
+    /// </summary>
+    public string GetRuntimeDirectoryPath() => _runtimeDirectory.FullName;
 
     /// <summary>
     /// Inject Dalamud using command-line arguments.
