@@ -7,7 +7,7 @@
 ## 功能特色
 
 - **快速登入** - 儲存帳號密碼，一鍵登入遊戲
-- **OTP 支援** - 支援一次性密碼驗證
+- **OTP 支援** - 手動輸入或**自動 OTP**（自動產生驗證碼，不用再開手機 App！）
 - **網頁登入** - 內建 WebView2 瀏覽器進行網頁驗證
 - **自動下載 Dalamud** - 自動從 [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) 下載並更新 Dalamud
 - **自動下載 .NET Runtime** - 自動從 NuGet 下載 .NET 9.0 Runtime（與 XIVLauncherCN 相同）
@@ -29,6 +29,31 @@
 3. 執行 `FFXIVSimpleLauncher.exe`
 4. 在設定中配置遊戲路徑
 5. 啟用 Dalamud（選用）- 會自動下載！
+
+## 自動 OTP（一次性密碼）
+
+不用再每次登入都開手機 App 了！啟動器可以自動幫你產生 OTP 驗證碼。
+
+### 設定方式
+
+1. 開啟**設定**
+2. 勾選**啟用自動 OTP**
+3. 輸入你的 OTP 密鑰（Base32 格式）
+   - 可從 SE 帳號的 OTP 設定頁面取得
+   - 通常顯示在 QR Code 下方
+4. 點擊**儲存密鑰**
+5. 完成！之後登入時會自動填入 OTP
+
+### 功能特色
+
+- **安全儲存** - 密鑰儲存於 Windows Credential Manager（非明文儲存）
+- **自動更新** - 每 30 秒更新驗證碼，顯示倒數計時
+- **自動填入** - 登入頁面自動填入 OTP 驗證碼
+- **輕鬆清除** - 隨時可在設定中清除密鑰
+
+### 手動 OTP
+
+如果你不想儲存密鑰，也可以在登入頁面手動輸入 OTP。
 
 ## Dalamud 支援
 

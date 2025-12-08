@@ -7,7 +7,7 @@ A faster launcher for Final Fantasy XIV Taiwan version with **automatic Dalamud 
 ## Features
 
 - **Fast Login** - Streamlined login process with saved credentials
-- **OTP Support** - One-Time Password authentication support
+- **OTP Support** - Manual entry or **Auto OTP** (automatically generates codes, no phone app needed!)
 - **Web Login** - Integrated WebView2 browser for web-based authentication
 - **Auto Dalamud Download** - Automatically downloads and updates Dalamud from [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud)
 - **Auto .NET Runtime** - Automatically downloads .NET 9.0 Runtime from NuGet (same as XIVLauncherCN)
@@ -29,6 +29,31 @@ A faster launcher for Final Fantasy XIV Taiwan version with **automatic Dalamud 
 3. Run `FFXIVSimpleLauncher.exe`
 4. Configure your game path in Settings
 5. Enable Dalamud (optional) - it will download automatically!
+
+## Auto OTP (One-Time Password)
+
+No more opening your phone app every time you log in! The launcher can automatically generate OTP codes for you.
+
+### How to Setup
+
+1. Open **Settings**
+2. Check **Enable Auto OTP**
+3. Enter your OTP secret key (Base32 format)
+   - You can find this on the SE Account OTP setup page
+   - It's usually shown below the QR code
+4. Click **Save Secret**
+5. Done! OTP will be auto-filled when you log in
+
+### Features
+
+- **Secure Storage** - Secret key is stored in Windows Credential Manager (not in plain text)
+- **Auto Refresh** - Code updates every 30 seconds with countdown display
+- **Auto Fill** - Automatically fills OTP field on the login page
+- **Easy Clear** - Remove secret anytime from Settings
+
+### Manual OTP
+
+If you prefer not to store your secret, you can still enter OTP manually on the login page.
 
 ## Dalamud Support
 
