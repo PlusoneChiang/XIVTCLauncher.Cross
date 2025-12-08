@@ -38,7 +38,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(_settings.GamePath))
         {
-            StatusMessage = "Please set game path in settings first";
+            StatusMessage = "請先在設定中指定遊戲路徑";
             return;
         }
 
@@ -59,14 +59,14 @@ public partial class MainViewModel : ObservableObject
             catch (Exception ex)
             {
                 var result = MessageBox.Show(
-                    $"Failed to prepare Dalamud: {ex.Message}\n\nDo you want to launch without Dalamud?",
-                    "Dalamud Error",
+                    $"準備 Dalamud 失敗: {ex.Message}\n\n是否不使用 Dalamud 啟動遊戲？",
+                    "Dalamud 錯誤",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning);
 
                 if (result != MessageBoxResult.Yes)
                 {
-                    StatusMessage = "Launch cancelled";
+                    StatusMessage = "啟動已取消";
                     return;
                 }
 
@@ -105,7 +105,7 @@ public partial class MainViewModel : ObservableObject
                 _settingsService.Save(_settings);
             }
 
-            StatusMessage = "Login successful! Launching game...";
+            StatusMessage = "登入成功！正在啟動遊戲...";
 
             try
             {
@@ -113,7 +113,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     LaunchGameWithDalamud(webLoginWindow.SessionId);
                     // Don't close launcher immediately - let user see injection status
-                    StatusMessage += "\n\nYou can close this launcher now.";
+                    StatusMessage += "\n\n現在可以關閉啟動器了。";
                 }
                 else
                 {
@@ -124,12 +124,12 @@ public partial class MainViewModel : ObservableObject
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Failed to launch game: {ex.Message}";
+                StatusMessage = $"啟動遊戲失敗: {ex.Message}";
             }
         }
         else
         {
-            StatusMessage = "Login cancelled";
+            StatusMessage = "登入已取消";
         }
     }
 
@@ -186,7 +186,7 @@ public partial class MainViewModel : ObservableObject
         {
             _settings = settingsWindow.Settings;
             _settingsService.Save(_settings);
-            StatusMessage = "Settings saved";
+            StatusMessage = "設定已儲存";
         }
     }
 
@@ -195,13 +195,13 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(_settings.GamePath))
         {
-            StatusMessage = "Please set game path in settings first";
+            StatusMessage = "請先在設定中指定遊戲路徑";
             return;
         }
 
         if (!_settings.EnableDalamud)
         {
-            StatusMessage = "Dalamud is not enabled. Enable it in Settings first.";
+            StatusMessage = "Dalamud 未啟用。請先在設定中啟用。";
             return;
         }
 
@@ -229,11 +229,11 @@ public partial class MainViewModel : ObservableObject
             // Use a fake session ID - game will launch but disconnect at lobby
             var fakeSessionId = "TEST_SESSION_FOR_DALAMUD_INJECT";
             LaunchGameWithDalamud(fakeSessionId);
-            StatusMessage = "Game launched with Dalamud!\n\nNote: Using fake session - you will be disconnected at lobby.\nThis is for testing Dalamud injection only.";
+            StatusMessage = "已使用 Dalamud 啟動遊戲！\n\n注意：使用測試 Session - 將會在大廳斷線。\n這僅用於測試 Dalamud 注入。";
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Failed to launch game: {ex.Message}";
+            StatusMessage = $"啟動遊戲失敗: {ex.Message}";
         }
     }
 }

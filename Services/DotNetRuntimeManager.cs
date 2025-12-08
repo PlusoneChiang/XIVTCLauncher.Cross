@@ -75,12 +75,12 @@ public class DotNetRuntimeManager
     {
         if (await CanReachNuGetAsync())
         {
-            ReportStatus("Using NuGet official source");
+            ReportStatus("使用 NuGet 官方來源");
             return NUGET_BASE_URL;
         }
         else
         {
-            ReportStatus("Using Huawei Cloud mirror");
+            ReportStatus("使用華為雲鏡像");
             return NUGET_MIRROR_URL;
         }
     }
@@ -92,7 +92,7 @@ public class DotNetRuntimeManager
     {
         try
         {
-            ReportStatus("Fetching Dalamud version info...");
+            ReportStatus("取得 Dalamud 版本資訊...");
             var json = await _httpClient.GetStringAsync(VERSION_INFO_URL);
             var versionInfo = JsonSerializer.Deserialize<DalamudVersionInfo>(json);
 
@@ -100,16 +100,16 @@ public class DotNetRuntimeManager
             {
                 RequiredVersion = versionInfo.RuntimeVersion;
                 RuntimeRequired = versionInfo.RuntimeRequired;
-                ReportStatus($"Required .NET Runtime: {RequiredVersion}");
+                ReportStatus($"需要 .NET Runtime: {RequiredVersion}");
                 return RequiredVersion;
             }
         }
         catch (Exception ex)
         {
-            ReportStatus($"Failed to fetch version info: {ex.Message}");
+            ReportStatus($"取得版本資訊失敗: {ex.Message}");
             // Default to 9.0.3 if fetch fails
             RequiredVersion = "9.0.3";
-            ReportStatus($"Using default version: {RequiredVersion}");
+            ReportStatus($"使用預設版本: {RequiredVersion}");
             return RequiredVersion;
         }
 
@@ -171,22 +171,22 @@ public class DotNetRuntimeManager
 
         if (string.IsNullOrEmpty(RequiredVersion))
         {
-            throw new Exception("Could not determine required .NET Runtime version");
+            throw new Exception("無法確定所需的 .NET Runtime 版本");
         }
 
         if (!RuntimeRequired)
         {
-            ReportStatus(".NET Runtime not required for this Dalamud version");
+            ReportStatus("此 Dalamud 版本不需要 .NET Runtime");
             return;
         }
 
         var version = RequiredVersion;
-        ReportStatus($"Checking .NET Runtime {version}...");
+        ReportStatus($"檢查 .NET Runtime {version}...");
 
         // Check if runtime already exists and is valid
         if (IsRuntimeInstalled())
         {
-            ReportStatus($".NET Runtime {version} is already installed");
+            ReportStatus($".NET Runtime {version} 已安裝");
             return;
         }
 
@@ -196,17 +196,17 @@ public class DotNetRuntimeManager
 
         if (localVersion?.Trim() == version && IsRuntimeInstalled())
         {
-            ReportStatus($".NET Runtime {version} verified");
+            ReportStatus($".NET Runtime {version} 驗證通過");
             return;
         }
 
         // Need to download
-        ReportStatus($"Downloading .NET Runtime {version} from NuGet...");
+        ReportStatus($"從 NuGet 下載 .NET Runtime {version}...");
         await DownloadRuntimeFromNuGetAsync(version);
 
         // Save version file
         await File.WriteAllTextAsync(versionFile.FullName, version);
-        ReportStatus($".NET Runtime {version} ready");
+        ReportStatus($".NET Runtime {version} 準備就緒");
     }
 
     /// <summary>
@@ -223,7 +223,7 @@ public class DotNetRuntimeManager
             }
             catch (Exception ex)
             {
-                ReportStatus($"Warning: Could not clean runtime directory: {ex.Message}");
+                ReportStatus($"警告: 無法清理 Runtime 目錄: {ex.Message}");
             }
         }
         _runtimeDirectory.Create();
@@ -239,21 +239,21 @@ public class DotNetRuntimeManager
             var dotnetMajorMinor = versionParts.Length >= 2 ? $"{versionParts[0]}.{versionParts[1]}" : "9.0";
 
             // Download and extract .NET Core runtime
-            ReportStatus($"Downloading Microsoft.NETCore.App.Runtime {version}...");
+            ReportStatus($"下載 Microsoft.NETCore.App.Runtime {version}...");
             var netcoreNupkg = Path.Combine(tempDir, "netcore.nupkg");
             var netcoreUrl = $"{baseUrl}/{NETCORE_PACKAGE}/{version.ToLower()}/{NETCORE_PACKAGE}.{version.ToLower()}.nupkg";
             await DownloadFileAsync(netcoreUrl, netcoreNupkg);
 
-            ReportStatus("Extracting .NET Core Runtime...");
+            ReportStatus("解壓 .NET Core Runtime...");
             await ExtractNuGetPackageAsync(netcoreNupkg, version, dotnetMajorMinor, "Microsoft.NETCore.App");
 
             // Download and extract Windows Desktop runtime
-            ReportStatus($"Downloading Microsoft.WindowsDesktop.App.Runtime {version}...");
+            ReportStatus($"下載 Microsoft.WindowsDesktop.App.Runtime {version}...");
             var desktopNupkg = Path.Combine(tempDir, "desktop.nupkg");
             var desktopUrl = $"{baseUrl}/{DESKTOP_PACKAGE}/{version.ToLower()}/{DESKTOP_PACKAGE}.{version.ToLower()}.nupkg";
             await DownloadFileAsync(desktopUrl, desktopNupkg);
 
-            ReportStatus("Extracting Windows Desktop Runtime...");
+            ReportStatus("解壓 Windows Desktop Runtime...");
             await ExtractNuGetPackageAsync(desktopNupkg, version, dotnetMajorMinor, "Microsoft.WindowsDesktop.App");
 
             // Move hostfxr.dll to correct location
@@ -262,7 +262,7 @@ public class DotNetRuntimeManager
             // Cleanup old versions
             CleanupOldVersions(version);
 
-            ReportStatus($".NET Runtime {version} installed successfully");
+            ReportStatus($".NET Runtime {version} 安裝成功");
         }
         finally
         {

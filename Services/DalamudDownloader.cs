@@ -85,21 +85,21 @@ public class DalamudDownloader
     {
         try
         {
-            ReportStatus("Checking for Dalamud updates...");
+            ReportStatus("檢查 Dalamud 更新...");
             var json = await _httpClient.GetStringAsync(RELEASES_API_URL);
             var release = JsonSerializer.Deserialize<GitHubRelease>(json);
 
             if (release != null)
             {
                 LatestVersion = release.TagName;
-                ReportStatus($"Latest Dalamud version: {LatestVersion}");
+                ReportStatus($"最新 Dalamud 版本: {LatestVersion}");
             }
 
             return release;
         }
         catch (Exception ex)
         {
-            ReportStatus($"Failed to check for updates: {ex.Message}");
+            ReportStatus($"檢查更新失敗: {ex.Message}");
             return null;
         }
     }
@@ -134,7 +134,7 @@ public class DalamudDownloader
             var release = await FetchLatestReleaseAsync();
             if (release != null && InstalledVersion == release.TagName)
             {
-                ReportStatus($"Dalamud {InstalledVersion} is up-to-date");
+                ReportStatus($"Dalamud {InstalledVersion} 已是最新版本");
                 return;
             }
         }
@@ -151,7 +151,7 @@ public class DalamudDownloader
         var release = await FetchLatestReleaseAsync();
         if (release == null)
         {
-            throw new Exception("Failed to fetch release information from GitHub");
+            throw new Exception("無法從 GitHub 取得發布資訊");
         }
 
         // Find latest.7z asset
@@ -160,10 +160,10 @@ public class DalamudDownloader
 
         if (asset == null || string.IsNullOrEmpty(asset.BrowserDownloadUrl))
         {
-            throw new Exception("Could not find latest.7z in release assets");
+            throw new Exception("在發布資源中找不到 latest.7z");
         }
 
-        ReportStatus($"Downloading Dalamud {release.TagName}...");
+        ReportStatus($"下載 Dalamud {release.TagName}...");
 
         // Create temp file for download
         var tempFile = Path.Combine(Path.GetTempPath(), $"dalamud-{Guid.NewGuid()}.7z");
@@ -176,20 +176,20 @@ public class DalamudDownloader
             // Clean existing installation
             if (_dalamudDirectory.Exists)
             {
-                ReportStatus("Removing old Dalamud installation...");
+                ReportStatus("移除舊版 Dalamud...");
                 try
                 {
                     _dalamudDirectory.Delete(true);
                 }
                 catch (Exception ex)
                 {
-                    ReportStatus($"Warning: Could not fully clean directory: {ex.Message}");
+                    ReportStatus($"警告: 無法完全清理目錄: {ex.Message}");
                 }
             }
             _dalamudDirectory.Create();
 
             // Extract 7z file
-            ReportStatus("Extracting Dalamud...");
+            ReportStatus("解壓 Dalamud...");
             await ExtractArchiveAsync(tempFile, _dalamudDirectory.FullName);
 
             // Save version file
@@ -197,7 +197,7 @@ public class DalamudDownloader
             await File.WriteAllTextAsync(versionFile, release.TagName ?? "unknown");
             InstalledVersion = release.TagName;
 
-            ReportStatus($"Dalamud {release.TagName} installed successfully");
+            ReportStatus($"Dalamud {release.TagName} 安裝成功");
         }
         finally
         {
@@ -229,13 +229,13 @@ public class DalamudDownloader
     /// </summary>
     private async Task DownloadFileAsync(string url, string destinationPath)
     {
-        ReportStatus($"Downloading from: {url}");
+        ReportStatus($"下載中: {url}");
 
         using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
 
         if (!response.IsSuccessStatusCode)
         {
-            throw new HttpRequestException($"Failed to download: {response.StatusCode}");
+            throw new HttpRequestException($"下載失敗: {response.StatusCode}");
         }
 
         var totalBytes = response.Content.Headers.ContentLength ?? -1;
@@ -266,14 +266,14 @@ public class DalamudDownloader
     {
         await Task.Run(() =>
         {
-            ReportStatus("Opening archive...");
+            ReportStatus("開啟壓縮檔...");
             using var archive = new ArchiveFile(archivePath);
 
             var entries = archive.Entries.Where(e => !e.IsFolder).ToList();
             var totalEntries = entries.Count;
             var extractedEntries = 0;
 
-            ReportStatus($"Extracting {totalEntries} files...");
+            ReportStatus($"解壓 {totalEntries} 個檔案...");
 
             foreach (var entry in entries)
             {
@@ -293,11 +293,11 @@ public class DalamudDownloader
                 if (extractedEntries % 10 == 0 || extractedEntries == totalEntries)
                 {
                     ReportProgress((double)extractedEntries / totalEntries * 100);
-                    ReportStatus($"Extracting... ({extractedEntries}/{totalEntries})");
+                    ReportStatus($"解壓中... ({extractedEntries}/{totalEntries})");
                 }
             }
 
-            ReportStatus("Extraction complete");
+            ReportStatus("解壓完成");
         });
     }
 }

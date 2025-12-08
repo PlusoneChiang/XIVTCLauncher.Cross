@@ -6,8 +6,8 @@
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         xmlns:viewmodels="clr-namespace:FFXIVSimpleLauncher.ViewModels"
         mc:Ignorable="d"
-        Title="FFXIV Simple Launcher"
-        Height="500" Width="500"
+        Title="XIV TC Launcher"
+        Height="350" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource MaterialDesignPaper}"
@@ -23,17 +23,16 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Title -->
         <TextBlock Grid.Row="0"
-                   Text="FFXIV 簡易啟動器"
+                   Text="XIV TC Launcher"
                    Style="{StaticResource MaterialDesignHeadline5TextBlock}"
                    HorizontalAlignment="Center"
-                   Margin="0,0,0,16"/>
+                   Margin="0,0,0,8"/>
 
         <!-- Subtitle -->
         <TextBlock Grid.Row="1"
@@ -44,7 +43,7 @@
                    Margin="0,0,0,24"/>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="3" Orientation="Vertical" HorizontalAlignment="Center">
+        <StackPanel Grid.Row="2" Orientation="Vertical" HorizontalAlignment="Center">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button Content="登入"
                         Command="{Binding LoginCommand}"
@@ -73,15 +72,30 @@
         </StackPanel>
 
         <!-- Status Message with Scroll -->
-        <ScrollViewer Grid.Row="4"
-                      VerticalScrollBarVisibility="Auto"
-                      MaxHeight="250"
-                      Margin="0,16,0,0">
-            <TextBlock Text="{Binding StatusMessage}"
-                       TextWrapping="Wrap"
-                       FontFamily="Consolas"
-                       FontSize="11"
-                       Foreground="{DynamicResource MaterialDesignBodyLight}"/>
-        </ScrollViewer>
+        <materialDesign:Card Grid.Row="3"
+                             Margin="0,16,0,0"
+                             Padding="12"
+                             Background="{DynamicResource MaterialDesignCardBackground}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0"
+                           Text="狀態日誌"
+                           Style="{StaticResource MaterialDesignCaptionTextBlock}"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"
+                           Margin="0,0,0,8"/>
+                <ScrollViewer Grid.Row="1"
+                              VerticalScrollBarVisibility="Auto"
+                              MaxHeight="100">
+                    <TextBlock Text="{Binding StatusMessage}"
+                               TextWrapping="Wrap"
+                               FontFamily="Consolas"
+                               FontSize="11"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                </ScrollViewer>
+            </Grid>
+        </materialDesign:Card>
     </Grid>
 </Window>

@@ -135,7 +135,7 @@ public class DalamudService
             if (SourceMode == DalamudSourceMode.AutoDownload)
             {
                 State = DalamudState.DownloadingDalamud;
-                ReportStatus("Checking Dalamud...");
+                ReportStatus("檢查 Dalamud...");
                 await _dalamudDownloader.EnsureDalamudAsync();
                 ValidateDalamudPath(_dalamudDirectory.FullName);
             }
@@ -144,18 +144,18 @@ public class DalamudService
                 if (string.IsNullOrEmpty(LocalDalamudPath))
                     throw new InvalidOperationException("請在設定中指定本地 Dalamud 路徑。");
 
-                ReportStatus("Validating local Dalamud...");
+                ReportStatus("驗證本地 Dalamud...");
                 ValidateDalamudPath(LocalDalamudPath);
             }
 
             // Step 2: Ensure .NET Runtime is downloaded
             State = DalamudState.DownloadingRuntime;
-            ReportStatus("Checking .NET Runtime...");
+            ReportStatus("檢查 .NET Runtime...");
             await _runtimeManager.EnsureRuntimeAsync();
 
             // Step 3: Ensure assets are downloaded
             State = DalamudState.DownloadingAssets;
-            ReportStatus("Checking assets...");
+            ReportStatus("檢查資源...");
             await EnsureAssetsAsync();
 
             State = DalamudState.Ready;
