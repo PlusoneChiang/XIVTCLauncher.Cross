@@ -6,22 +6,26 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using FFXIVSimpleLauncher.Dalamud;
+using FFXIVSimpleLauncher.Models;
 
 namespace FFXIVSimpleLauncher.Services;
 
 /// <summary>
-/// Dalamud service for local Dalamud builds with official asset support.
-/// Downloads assets from goatcorp server, uses local Dalamud build.
+/// Dalamud service supporting both auto-download and local path modes.
+/// Downloads Dalamud from yanmucorp/Dalamud and assets from ottercorp.
 /// </summary>
 public class DalamudService
 {
     // Ottercorp (CN) asset server - compatible with yanmucorp Dalamud
     private const string ASSET_URL = "https://aonyx.ffxiv.wang/Dalamud/Asset/Meta";
 
+    private readonly DirectoryInfo _baseDirectory;
     private readonly DirectoryInfo _configDirectory;
     private readonly DirectoryInfo _runtimeDirectory;
     private readonly DirectoryInfo _assetDirectory;
+    private readonly DirectoryInfo _dalamudDirectory;
     private readonly DotNetRuntimeManager _runtimeManager;
+    private readonly DalamudDownloader _dalamudDownloader;
 
     private FileInfo? _runner;
     private DirectoryInfo? _currentAssetDirectory;
@@ -30,8 +34,9 @@ public class DalamudService
     {
         NotReady,
         Checking,
-        Downloading,
+        DownloadingDalamud,
         DownloadingRuntime,
+        DownloadingAssets,
         Ready,
         Failed
     }
@@ -42,39 +47,52 @@ public class DalamudService
     public event Action<double>? ProgressChanged;
 
     /// <summary>
-    /// Path to local Dalamud build directory
+    /// Dalamud source mode (auto-download or local path).
+    /// </summary>
+    public DalamudSourceMode SourceMode { get; set; } = DalamudSourceMode.AutoDownload;
+
+    /// <summary>
+    /// Path to local Dalamud build directory (only used when SourceMode is LocalPath).
     /// </summary>
     public string? LocalDalamudPath { get; set; }
 
     /// <summary>
-    /// Whether to use CN mirror for downloads (faster for CN/TW users)
-    /// </summary>
-    public bool UseCnMirror { get; set; } = true;
-
-    /// <summary>
-    /// Required .NET Runtime version for Dalamud (fetched from server)
+    /// Required .NET Runtime version for Dalamud (fetched from server).
     /// </summary>
     public string? RuntimeVersion => _runtimeManager.RequiredVersion;
+
+    /// <summary>
+    /// Installed Dalamud version (when using auto-download).
+    /// </summary>
+    public string? DalamudVersion => _dalamudDownloader.InstalledVersion;
 
     public DalamudService()
     {
         var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         var baseDir = Path.Combine(appDataPath, "FFXIVSimpleLauncher", "Dalamud");
 
+        _baseDirectory = new DirectoryInfo(baseDir);
         _configDirectory = new DirectoryInfo(Path.Combine(baseDir, "Config"));
         _runtimeDirectory = new DirectoryInfo(Path.Combine(baseDir, "Runtime"));
         _assetDirectory = new DirectoryInfo(Path.Combine(baseDir, "Assets"));
+        _dalamudDirectory = new DirectoryInfo(Path.Combine(baseDir, "Injector"));
 
         // Initialize runtime manager
         _runtimeManager = new DotNetRuntimeManager(_runtimeDirectory, useCnMirror: true);
         _runtimeManager.StatusChanged += status => StatusChanged?.Invoke(status);
         _runtimeManager.ProgressChanged += progress => ProgressChanged?.Invoke(progress);
 
+        // Initialize Dalamud downloader
+        _dalamudDownloader = new DalamudDownloader(_dalamudDirectory);
+        _dalamudDownloader.StatusChanged += status => StatusChanged?.Invoke(status);
+        _dalamudDownloader.ProgressChanged += progress => ProgressChanged?.Invoke(progress);
+
         EnsureDirectories();
     }
 
     private void EnsureDirectories()
     {
+        if (!_baseDirectory.Exists) _baseDirectory.Create();
         if (!_configDirectory.Exists) _configDirectory.Create();
         if (!_runtimeDirectory.Exists) _runtimeDirectory.Create();
         if (!_assetDirectory.Exists) _assetDirectory.Create();
@@ -90,6 +108,19 @@ public class DalamudService
         ProgressChanged?.Invoke(progress);
     }
 
+    /// <summary>
+    /// Get the effective Dalamud path based on source mode.
+    /// </summary>
+    private string GetEffectiveDalamudPath()
+    {
+        return SourceMode == DalamudSourceMode.AutoDownload
+            ? _dalamudDirectory.FullName
+            : LocalDalamudPath ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Ensure Dalamud is ready (downloaded/validated, runtime ready, assets ready).
+    /// </summary>
     public async Task EnsureDalamudAsync()
     {
         if (State == DalamudState.Ready)
@@ -100,53 +131,69 @@ public class DalamudService
 
         try
         {
-            if (string.IsNullOrEmpty(LocalDalamudPath))
-                throw new InvalidOperationException("Local Dalamud path is not set. Please configure it in Settings.");
+            // Step 1: Ensure Dalamud is available
+            if (SourceMode == DalamudSourceMode.AutoDownload)
+            {
+                State = DalamudState.DownloadingDalamud;
+                ReportStatus("Checking Dalamud...");
+                await _dalamudDownloader.EnsureDalamudAsync();
+                ValidateDalamudPath(_dalamudDirectory.FullName);
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(LocalDalamudPath))
+                    throw new InvalidOperationException("請在設定中指定本地 Dalamud 路徑。");
 
-            ReportStatus("Validating local Dalamud build...");
-            await Task.Run(() => ValidateLocalDalamudInternal());
+                ReportStatus("Validating local Dalamud...");
+                ValidateDalamudPath(LocalDalamudPath);
+            }
 
-            // Ensure .NET Runtime is downloaded
+            // Step 2: Ensure .NET Runtime is downloaded
             State = DalamudState.DownloadingRuntime;
             ReportStatus("Checking .NET Runtime...");
             await _runtimeManager.EnsureRuntimeAsync();
 
+            // Step 3: Ensure assets are downloaded
+            State = DalamudState.DownloadingAssets;
             ReportStatus("Checking assets...");
             await EnsureAssetsAsync();
 
             State = DalamudState.Ready;
-            ReportStatus("Dalamud ready!");
+            ReportStatus("Dalamud 準備就緒！");
         }
         catch (Exception ex)
         {
             State = DalamudState.Failed;
             ErrorMessage = ex.Message;
-            ReportStatus($"Failed: {ex.Message}");
+            ReportStatus($"失敗: {ex.Message}");
             throw;
         }
     }
 
-    private void ValidateLocalDalamudInternal()
+    /// <summary>
+    /// Validate that a Dalamud path contains required files.
+    /// </summary>
+    private void ValidateDalamudPath(string path)
     {
-        var localDir = new DirectoryInfo(LocalDalamudPath!);
-        if (!localDir.Exists)
-            throw new DirectoryNotFoundException($"Local Dalamud directory not found: {LocalDalamudPath}");
+        var dir = new DirectoryInfo(path);
+        if (!dir.Exists)
+            throw new DirectoryNotFoundException($"Dalamud 目錄不存在: {path}");
 
-        var injectorPath = new FileInfo(Path.Combine(LocalDalamudPath!, "Dalamud.Injector.exe"));
+        var injectorPath = new FileInfo(Path.Combine(path, "Dalamud.Injector.exe"));
         if (!injectorPath.Exists)
-            throw new FileNotFoundException($"Dalamud.Injector.exe not found in: {LocalDalamudPath}");
+            throw new FileNotFoundException($"找不到 Dalamud.Injector.exe: {path}");
 
         _runner = injectorPath;
 
         var requiredFiles = new[] { "Dalamud.dll", "FFXIVClientStructs.dll" };
         foreach (var file in requiredFiles)
         {
-            var filePath = Path.Combine(LocalDalamudPath!, file);
+            var filePath = Path.Combine(path, file);
             if (!File.Exists(filePath))
-                throw new FileNotFoundException($"Required file not found: {file}");
+                throw new FileNotFoundException($"找不到必要檔案: {file}");
         }
 
-        ReportStatus("Local Dalamud validated");
+        ReportStatus("Dalamud 驗證通過");
     }
 
     private async Task EnsureAssetsAsync()
@@ -154,12 +201,12 @@ public class DalamudService
         using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         client.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue { NoCache = true };
 
-        ReportStatus("Fetching asset info from goatcorp...");
+        ReportStatus("取得資源資訊...");
         var assetInfoJson = await client.GetStringAsync(ASSET_URL);
         var assetInfo = JsonSerializer.Deserialize<AssetInfo>(assetInfoJson);
 
         if (assetInfo == null)
-            throw new Exception("Failed to parse asset info");
+            throw new Exception("無法解析資源資訊");
 
         var localVerFile = Path.Combine(_assetDirectory.FullName, "asset.ver");
         var localVer = File.Exists(localVerFile) ? int.Parse(File.ReadAllText(localVerFile)) : 0;
@@ -169,12 +216,12 @@ public class DalamudService
         if (localVer >= assetInfo.Version && currentDir.Exists)
         {
             _currentAssetDirectory = currentDir;
-            ReportStatus("Assets up to date");
+            ReportStatus("資源已是最新");
             return;
         }
 
-        State = DalamudState.Downloading;
-        ReportStatus("Downloading assets...");
+        State = DalamudState.DownloadingAssets;
+        ReportStatus("下載資源...");
 
         if (currentDir.Exists)
             currentDir.Delete(true);
@@ -182,12 +229,11 @@ public class DalamudService
 
         if (!string.IsNullOrEmpty(assetInfo.PackageUrl))
         {
-            // Download package ZIP
             var tempFile = Path.GetTempFileName();
             try
             {
                 await DownloadFileAsync(assetInfo.PackageUrl, tempFile);
-                ReportStatus("Extracting assets...");
+                ReportStatus("解壓資源...");
                 ZipFile.ExtractToDirectory(tempFile, currentDir.FullName);
             }
             finally
@@ -198,7 +244,6 @@ public class DalamudService
         }
         else if (assetInfo.Assets != null && assetInfo.Assets.Count > 0)
         {
-            // Download individual assets
             var totalAssets = assetInfo.Assets.Count;
             var downloadedAssets = 0;
 
@@ -209,7 +254,7 @@ public class DalamudService
                 if (!string.IsNullOrEmpty(assetDir))
                     Directory.CreateDirectory(assetDir);
 
-                ReportStatus($"Downloading: {asset.FileName}");
+                ReportStatus($"下載: {asset.FileName}");
 
                 try
                 {
@@ -217,7 +262,7 @@ public class DalamudService
                 }
                 catch (Exception ex)
                 {
-                    ReportStatus($"Warning: Failed to download {asset.FileName}: {ex.Message}");
+                    ReportStatus($"警告: 無法下載 {asset.FileName}: {ex.Message}");
                 }
 
                 downloadedAssets++;
@@ -228,7 +273,7 @@ public class DalamudService
         File.WriteAllText(localVerFile, assetInfo.Version.ToString());
         _currentAssetDirectory = currentDir;
 
-        // Create dev directory (copy of current)
+        // Create dev directory
         var devDir = new DirectoryInfo(Path.Combine(_assetDirectory.FullName, "dev"));
         if (devDir.Exists)
             devDir.Delete(true);
@@ -243,7 +288,7 @@ public class DalamudService
             }
         }
 
-        ReportStatus("Assets ready");
+        ReportStatus("資源準備就緒");
     }
 
     private async Task DownloadFileAsync(string url, string destinationPath)
@@ -291,9 +336,13 @@ public class DalamudService
         }
     }
 
-    public bool ValidateLocalDalamud()
+    /// <summary>
+    /// Validate the effective Dalamud path.
+    /// </summary>
+    public bool ValidateDalamud()
     {
-        if (string.IsNullOrEmpty(LocalDalamudPath))
+        var path = GetEffectiveDalamudPath();
+        if (string.IsNullOrEmpty(path))
             return false;
 
         var requiredFiles = new[]
@@ -303,7 +352,7 @@ public class DalamudService
             "FFXIVClientStructs.dll"
         };
 
-        return requiredFiles.All(f => File.Exists(Path.Combine(LocalDalamudPath, f)));
+        return requiredFiles.All(f => File.Exists(Path.Combine(path, f)));
     }
 
     /// <summary>
@@ -312,11 +361,11 @@ public class DalamudService
     public Process? LaunchGameWithDalamud(string gameExePath, string gameArgs, string gameVersion, int injectionDelay = 0)
     {
         if (State != DalamudState.Ready || _runner == null)
-            throw new InvalidOperationException("Dalamud is not ready");
+            throw new InvalidOperationException("Dalamud 尚未準備就緒");
 
-        var workingDir = _runner.Directory?.FullName ?? "";
+        var dalamudPath = GetEffectiveDalamudPath();
+        var workingDir = Path.GetDirectoryName(_runner.FullName) ?? dalamudPath;
 
-        // Use current asset directory
         var assetDir = _currentAssetDirectory?.FullName
             ?? Path.Combine(_assetDirectory.FullName, "dev");
         Directory.CreateDirectory(assetDir);
@@ -330,16 +379,27 @@ public class DalamudService
         Directory.CreateDirectory(devPluginDirectory);
         Directory.CreateDirectory(logPath);
 
-        // Set environment variables for runtime
+        // Find and validate .NET Runtime
+        ReportStatus("尋找 .NET Runtime...");
         var runtimePath = FindDotNetRuntime();
-        if (!string.IsNullOrEmpty(runtimePath))
+
+        if (string.IsNullOrEmpty(runtimePath))
         {
-            Environment.SetEnvironmentVariable("DALAMUD_RUNTIME", runtimePath);
-            Environment.SetEnvironmentVariable("DOTNET_ROOT", runtimePath);
+            ReportStatus("錯誤: 找不到有效的 .NET Runtime！");
+            ReportStatus("已檢查位置:");
+            ReportStatus($"  1. 託管: {_runtimeDirectory.FullName}");
+            ReportStatus($"  2. XIVLauncherCN: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "XIVLauncherCN", "runtime")}");
+            ReportStatus($"  3. XIVLauncher: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "XIVLauncher", "runtime")}");
+            ReportStatus($"  4. 系統: {Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "dotnet")}");
+            throw new Exception("找不到有效的 .NET Runtime。請確保 Runtime 已下載或安裝 .NET 9.0 Runtime。");
         }
 
+        // Set environment variables for runtime
+        Environment.SetEnvironmentVariable("DALAMUD_RUNTIME", runtimePath);
+        Environment.SetEnvironmentVariable("DOTNET_ROOT", runtimePath);
+
         var gameWorkingDir = Path.GetDirectoryName(gameExePath) ?? "";
-        ReportStatus("Starting game...");
+        ReportStatus("啟動遊戲...");
 
         // Launch game first
         var gameProcess = Process.Start(new ProcessStartInfo
@@ -351,10 +411,10 @@ public class DalamudService
         });
 
         if (gameProcess == null)
-            throw new Exception("Failed to start game process");
+            throw new Exception("無法啟動遊戲程序");
 
         // Wait for game window
-        ReportStatus("Waiting for game window...");
+        ReportStatus("等待遊戲視窗...");
         var windowWaitStart = DateTime.Now;
         var maxWindowWait = TimeSpan.FromSeconds(60);
 
@@ -362,7 +422,7 @@ public class DalamudService
         {
             if (DateTime.Now - windowWaitStart > maxWindowWait)
             {
-                throw new Exception("Game window did not appear within 60 seconds");
+                throw new Exception("遊戲視窗在 60 秒內未出現");
             }
             Thread.Sleep(500);
             gameProcess.Refresh();
@@ -370,16 +430,16 @@ public class DalamudService
 
         if (gameProcess.HasExited)
         {
-            throw new Exception("Game exited before injection could complete");
+            throw new Exception("遊戲在注入完成前退出");
         }
 
         // Additional wait after window appears
         var additionalWait = Math.Max(injectionDelay, 3000);
-        ReportStatus($"Window found. Waiting {additionalWait / 1000}s before injection...");
+        ReportStatus($"視窗已出現。等待 {additionalWait / 1000} 秒後注入...");
         Thread.Sleep(additionalWait);
 
         // Inject Dalamud
-        ReportStatus("Injecting Dalamud...");
+        ReportStatus("注入 Dalamud...");
 
         try
         {
@@ -395,65 +455,124 @@ public class DalamudService
                 injectionDelay > 0 ? injectionDelay : 10000,
                 runtimePath
             );
-            ReportStatus("Dalamud injected successfully!");
+            ReportStatus("Dalamud 注入成功！");
         }
         catch (Exception ex)
         {
-            ReportStatus($"Dalamud injection failed: {ex.Message}");
-            // Game is still running, just without Dalamud
+            ReportStatus($"Dalamud 注入失敗: {ex.Message}");
         }
 
         return gameProcess;
     }
 
     /// <summary>
-    /// Find .NET runtime path (check local runtime directory or system-installed)
+    /// Find .NET runtime path.
     /// </summary>
     private string? FindDotNetRuntime()
     {
-        // First check our managed runtime (downloaded by DotNetRuntimeManager)
+        // First check our managed runtime
         var managedRuntime = _runtimeManager.GetRuntimePath();
-        if (!string.IsNullOrEmpty(managedRuntime))
+        if (!string.IsNullOrEmpty(managedRuntime) && ValidateRuntimeDirectory(managedRuntime))
         {
-            ReportStatus($"Using managed .NET Runtime: {managedRuntime}");
+            ReportStatus($"使用託管 .NET Runtime: {managedRuntime}");
+            LogRuntimeDetails(managedRuntime);
             return managedRuntime;
         }
 
-        // Fallback: check our local runtime directory manually
-        if (_runtimeDirectory.Exists)
+        // Fallback: check our local runtime directory
+        if (_runtimeDirectory.Exists && ValidateRuntimeDirectory(_runtimeDirectory.FullName))
         {
-            var hostFxr = _runtimeDirectory.GetDirectories("host", SearchOption.TopDirectoryOnly)
-                .FirstOrDefault()?.GetDirectories("fxr").FirstOrDefault();
-            if (hostFxr?.Exists == true && hostFxr.GetDirectories().Any())
-            {
-                return _runtimeDirectory.FullName;
-            }
+            ReportStatus($"使用本地 .NET Runtime: {_runtimeDirectory.FullName}");
+            LogRuntimeDetails(_runtimeDirectory.FullName);
+            return _runtimeDirectory.FullName;
         }
 
-        // Fallback: check XIVLauncher's runtime directory
+        // Fallback: XIVLauncherCN
+        var xivLauncherCNRuntime = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "XIVLauncherCN", "runtime");
+        if (Directory.Exists(xivLauncherCNRuntime) && ValidateRuntimeDirectory(xivLauncherCNRuntime))
+        {
+            ReportStatus($"使用 XIVLauncherCN .NET Runtime: {xivLauncherCNRuntime}");
+            LogRuntimeDetails(xivLauncherCNRuntime);
+            return xivLauncherCNRuntime;
+        }
+
+        // Fallback: XIVLauncher
         var xivLauncherRuntime = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "XIVLauncher", "runtime");
-        if (Directory.Exists(xivLauncherRuntime))
+        if (Directory.Exists(xivLauncherRuntime) && ValidateRuntimeDirectory(xivLauncherRuntime))
         {
-            var hostFxr = Path.Combine(xivLauncherRuntime, "host", "fxr");
-            if (Directory.Exists(hostFxr) && Directory.GetDirectories(hostFxr).Length > 0)
-            {
-                ReportStatus($"Using XIVLauncher .NET Runtime: {xivLauncherRuntime}");
-                return xivLauncherRuntime;
-            }
+            ReportStatus($"使用 XIVLauncher .NET Runtime: {xivLauncherRuntime}");
+            LogRuntimeDetails(xivLauncherRuntime);
+            return xivLauncherRuntime;
         }
 
-        // Fallback: check system .NET installation
+        // Fallback: system .NET
         var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
         var systemDotNet = Path.Combine(programFiles, "dotnet");
-        if (Directory.Exists(systemDotNet))
+        if (Directory.Exists(systemDotNet) && ValidateRuntimeDirectory(systemDotNet))
         {
-            ReportStatus($"Using system .NET Runtime: {systemDotNet}");
+            ReportStatus($"使用系統 .NET Runtime: {systemDotNet}");
+            LogRuntimeDetails(systemDotNet);
             return systemDotNet;
         }
 
+        ReportStatus("警告: 找不到有效的 .NET Runtime！");
         return null;
+    }
+
+    private bool ValidateRuntimeDirectory(string runtimePath)
+    {
+        if (string.IsNullOrEmpty(runtimePath) || !Directory.Exists(runtimePath))
+            return false;
+
+        var hostFxrPath = Path.Combine(runtimePath, "host", "fxr");
+        if (!Directory.Exists(hostFxrPath))
+            return false;
+
+        var fxrVersions = Directory.GetDirectories(hostFxrPath);
+        if (fxrVersions.Length == 0)
+            return false;
+
+        var hasHostFxr = fxrVersions.Any(v => File.Exists(Path.Combine(v, "hostfxr.dll")));
+        if (!hasHostFxr)
+            return false;
+
+        var netCorePath = Path.Combine(runtimePath, "shared", "Microsoft.NETCore.App");
+        if (!Directory.Exists(netCorePath) || Directory.GetDirectories(netCorePath).Length == 0)
+            return false;
+
+        return true;
+    }
+
+    private void LogRuntimeDetails(string runtimePath)
+    {
+        try
+        {
+            var hostFxrPath = Path.Combine(runtimePath, "host", "fxr");
+            if (Directory.Exists(hostFxrPath))
+            {
+                var versions = Directory.GetDirectories(hostFxrPath).Select(Path.GetFileName);
+                ReportStatus($"  - hostfxr 版本: {string.Join(", ", versions)}");
+            }
+
+            var netCorePath = Path.Combine(runtimePath, "shared", "Microsoft.NETCore.App");
+            if (Directory.Exists(netCorePath))
+            {
+                var versions = Directory.GetDirectories(netCorePath).Select(Path.GetFileName);
+                ReportStatus($"  - NETCore.App 版本: {string.Join(", ", versions)}");
+            }
+
+            var desktopPath = Path.Combine(runtimePath, "shared", "Microsoft.WindowsDesktop.App");
+            if (Directory.Exists(desktopPath))
+            {
+                var versions = Directory.GetDirectories(desktopPath).Select(Path.GetFileName);
+                ReportStatus($"  - WindowsDesktop.App 版本: {string.Join(", ", versions)}");
+            }
+        }
+        catch { }
     }
 
     /// <summary>
@@ -467,9 +586,19 @@ public class DalamudService
     public async Task ForceUpdateRuntimeAsync() => await _runtimeManager.ForceUpdateAsync();
 
     /// <summary>
+    /// Force re-download of Dalamud.
+    /// </summary>
+    public async Task ForceUpdateDalamudAsync() => await _dalamudDownloader.ForceUpdateAsync();
+
+    /// <summary>
     /// Get the runtime directory path.
     /// </summary>
     public string GetRuntimeDirectoryPath() => _runtimeDirectory.FullName;
+
+    /// <summary>
+    /// Get the Dalamud directory path.
+    /// </summary>
+    public string GetDalamudDirectoryPath() => _dalamudDirectory.FullName;
 
     /// <summary>
     /// Inject Dalamud using command-line arguments.
@@ -507,7 +636,7 @@ public class DalamudService
         }
 
         var argumentString = string.Join(" ", launchArguments);
-        ReportStatus($"Running: Dalamud.Injector.exe inject -v {gamePid} ...");
+        ReportStatus($"執行: Dalamud.Injector.exe inject -v {gamePid} ...");
 
         var psi = new ProcessStartInfo(runner.FullName)
         {
@@ -519,18 +648,22 @@ public class DalamudService
             CreateNoWindow = true
         };
 
-        // Set environment variables
+        // Set environment variables for .NET Runtime
         if (!string.IsNullOrEmpty(runtimePath))
         {
             psi.Environment["DALAMUD_RUNTIME"] = runtimePath;
             psi.Environment["DOTNET_ROOT"] = runtimePath;
+            ReportStatus($"環境變數: DALAMUD_RUNTIME = {runtimePath}");
+        }
+        else
+        {
+            ReportStatus("警告: 未指定 .NET Runtime 路徑！");
         }
 
         var dalamudProcess = Process.Start(psi);
         if (dalamudProcess == null)
-            throw new Exception("Failed to start Dalamud.Injector.exe");
+            throw new Exception("無法啟動 Dalamud.Injector.exe");
 
-        // Read output
         var output = new StringBuilder();
         var error = new StringBuilder();
 
@@ -556,7 +689,7 @@ public class DalamudService
         if (!dalamudProcess.WaitForExit(60000))
         {
             dalamudProcess.Kill();
-            throw new Exception("Dalamud.Injector.exe timed out");
+            throw new Exception("Dalamud.Injector.exe 逾時");
         }
 
         if (dalamudProcess.ExitCode != 0)
@@ -564,24 +697,11 @@ public class DalamudService
             var errorMsg = error.ToString().Trim();
             if (string.IsNullOrEmpty(errorMsg))
                 errorMsg = output.ToString().Trim();
-            throw new Exception($"Injection failed (exit code {dalamudProcess.ExitCode}): {errorMsg}");
+            throw new Exception($"注入失敗 (退出碼 {dalamudProcess.ExitCode}): {errorMsg}");
         }
     }
 
-    public bool IsGameVersionSupported(string gameVersion)
-    {
-        return true;
-    }
-
-    public bool IsExactVersionMatch(string gameVersion)
-    {
-        // Local builds don't have version info, always return true
-        return true;
-    }
-
-    public string? GetSupportedGameVersion()
-    {
-        // Local builds don't have version info
-        return null;
-    }
+    public bool IsGameVersionSupported(string gameVersion) => true;
+    public bool IsExactVersionMatch(string gameVersion) => true;
+    public string? GetSupportedGameVersion() => null;
 }

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="設定"
-        Height="520" Width="500"
+        Height="580" Width="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource MaterialDesignPaper}"
@@ -47,7 +47,7 @@
 
         <!-- Dalamud Section -->
         <TextBlock Grid.Row="2"
-                   Text="Dalamud (插件)"
+                   Text="Dalamud (插件系統)"
                    Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                    Margin="0,24,0,8"/>
 
@@ -55,56 +55,91 @@
             <CheckBox x:Name="EnableDalamudCheckBox"
                       Content="啟用 Dalamud"
                       Style="{StaticResource MaterialDesignCheckBox}"
-                      Margin="0,0,0,8"/>
+                      Margin="0,0,0,12"/>
 
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="100"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
+            <!-- Dalamud Source Mode -->
+            <StackPanel IsEnabled="{Binding IsChecked, ElementName=EnableDalamudCheckBox}">
+                <TextBlock Text="Dalamud 來源"
+                           Style="{StaticResource MaterialDesignBody2TextBlock}"
+                           FontWeight="Medium"
+                           Margin="0,0,0,8"/>
 
-                <TextBlock Grid.Column="0"
-                           Text="注入延遲 (毫秒)："
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0"/>
+                <!-- Auto Download Option -->
+                <RadioButton x:Name="AutoDownloadRadio"
+                             GroupName="DalamudSource"
+                             IsChecked="True"
+                             Margin="0,0,0,4">
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="自動下載 (推薦)"
+                                   FontWeight="Medium"/>
+                        <TextBlock Text="自動從 yanmucorp/Dalamud 下載最新版本"
+                                   FontSize="11"
+                                   Foreground="Gray"/>
+                    </StackPanel>
+                </RadioButton>
 
-                <TextBox Grid.Column="1"
-                         x:Name="InjectionDelayTextBox"
-                         Text="0"
-                         materialDesign:HintAssist.Hint="延遲"
-                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                         PreviewTextInput="InjectionDelayTextBox_PreviewTextInput"/>
-            </Grid>
+                <!-- Local Path Option -->
+                <RadioButton x:Name="LocalPathRadio"
+                             GroupName="DalamudSource"
+                             Margin="0,8,0,4">
+                    <StackPanel Orientation="Vertical">
+                        <TextBlock Text="手動指定路徑"
+                                   FontWeight="Medium"/>
+                        <TextBlock Text="使用本地已編譯的 Dalamud"
+                                   FontSize="11"
+                                   Foreground="Gray"/>
+                    </StackPanel>
+                </RadioButton>
 
-            <!-- Local Dalamud Path (required for Taiwan version) -->
-            <TextBlock Text="本地 Dalamud 路徑"
-                       Style="{StaticResource MaterialDesignBody2TextBlock}"
-                       Margin="0,16,0,4"/>
+                <!-- Local Path Selection (only visible when LocalPathRadio is checked) -->
+                <Grid Margin="24,8,0,0"
+                      Visibility="{Binding IsChecked, ElementName=LocalPathRadio, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-            <Grid IsEnabled="{Binding IsChecked, ElementName=EnableDalamudCheckBox}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
+                    <TextBox Grid.Column="0"
+                             x:Name="LocalDalamudPathTextBox"
+                             materialDesign:HintAssist.Hint="Dalamud 資料夾路徑"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             IsReadOnly="True"
+                             Margin="0,0,8,0"/>
 
-                <TextBox Grid.Column="0"
-                         x:Name="LocalDalamudPathTextBox"
-                         materialDesign:HintAssist.Hint="Dalamud 建置路徑"
-                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                         IsReadOnly="True"
-                         Margin="0,0,8,0"/>
+                    <Button Grid.Column="1"
+                            Content="瀏覽"
+                            Click="BrowseLocalDalamud_Click"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"/>
+                </Grid>
 
-                <Button Grid.Column="1"
-                        Content="瀏覽"
-                        Click="BrowseLocalDalamud_Click"
-                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
-            </Grid>
+                <!-- Injection Delay -->
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="100"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-            <TextBlock Text="包含 Dalamud.Injector.exe 的資料夾路徑 (台版需要自行編譯的 Dalamud)"
-                       FontSize="11"
-                       Foreground="Gray"
-                       Margin="0,4,0,0"/>
+                    <TextBlock Grid.Column="0"
+                               Text="注入延遲 (毫秒)："
+                               VerticalAlignment="Center"
+                               Margin="0,0,8,0"/>
+
+                    <TextBox Grid.Column="1"
+                             x:Name="InjectionDelayTextBox"
+                             Text="0"
+                             materialDesign:HintAssist.Hint="延遲"
+                             Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                             PreviewTextInput="InjectionDelayTextBox_PreviewTextInput"/>
+                </Grid>
+
+                <!-- Info text -->
+                <TextBlock Text="Dalamud 和 .NET Runtime 會在登入時自動下載/更新"
+                           FontSize="11"
+                           Foreground="Gray"
+                           Margin="0,12,0,0"
+                           Visibility="{Binding IsChecked, ElementName=AutoDownloadRadio, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+            </StackPanel>
         </StackPanel>
 
         <!-- Buttons -->

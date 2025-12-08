@@ -2,36 +2,101 @@
 
 [English](README.md) | [繁體中文](README_zh-TW.md)
 
-專為 Final Fantasy XIV 台灣版設計的快速啟動器，靈感來自 [FFXIVQuickLauncher](https://github.com/goatcorp/FFXIVQuickLauncher)。
+專為 Final Fantasy XIV 台灣版設計的快速啟動器，支援**自動下載 Dalamud**，靈感來自 [FFXIVQuickLauncher](https://github.com/goatcorp/FFXIVQuickLauncher)。
 
-## 為什麼選擇 XIVTCLauncher？
+## 功能特色
 
 - **快速登入** - 儲存帳號密碼，一鍵登入遊戲
 - **OTP 支援** - 支援一次性密碼驗證
 - **網頁登入** - 內建 WebView2 瀏覽器進行網頁驗證
-- **Dalamud 整合** - 支援 Dalamud 插件框架，增強遊戲體驗
-- **現代化介面** - 採用 Material Design 設計風格
-- **設定管理** - 自訂遊戲路徑與啟動選項
+- **自動下載 Dalamud** - 自動從 [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) 下載並更新 Dalamud
+- **自動下載 .NET Runtime** - 自動從 NuGet 下載 .NET 9.0 Runtime（與 XIVLauncherCN 相同）
+- **繁體中文介面** - 採用 Material Design 設計風格
 
 ## 系統需求
 
 - Windows 10/11
-- [.NET 8.0 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 8.0 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)（啟動器本身需要）
 - [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)
 - 已安裝 Final Fantasy XIV 台灣版
 
+> 注意：Dalamud 所需的 .NET 9.0 Runtime 會自動下載，無需手動安裝。
+
 ## 安裝方式
 
-1. 下載最新版本
+1. 從 [Releases](https://github.com/cycleapple/XIVTCLauncher/releases) 下載最新版本
 2. 解壓縮到任意資料夾
 3. 執行 `FFXIVSimpleLauncher.exe`
 4. 在設定中配置遊戲路徑
+5. 啟用 Dalamud（選用）- 會自動下載！
+
+## Dalamud 支援
+
+### 自動模式（推薦）
+
+啟動器可以自動下載和管理 Dalamud：
+
+1. 開啟**設定**
+2. 勾選**啟用 Dalamud**
+3. 選擇**自動下載（推薦）**
+4. 啟動遊戲 - 所有東西都會自動下載！
+
+**會下載的內容：**
+- Dalamud 從 [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud/releases)（約 31MB）
+- .NET 9.0 Runtime 從 NuGet（約 70MB）
+- Assets 從 [ottercorp](https://aonyx.ffxiv.wang)
+
+**儲存位置：**
+```
+%AppData%\FFXIVSimpleLauncher\Dalamud\
+├── Injector\     # Dalamud 檔案
+├── Runtime\      # .NET 9.0 Runtime
+├── Assets\       # Dalamud 資源
+└── Config\       # 插件設定
+```
+
+### 手動模式
+
+如果你想使用自己編譯的 Dalamud：
+
+1. 從 [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) 編譯或下載 Dalamud
+2. 開啟**設定**
+3. 勾選**啟用 Dalamud**
+4. 選擇**手動指定路徑**
+5. 瀏覽到你的 Dalamud 資料夾（包含 `Dalamud.Injector.exe`）
+
+## 插件倉庫
+
+由於 yanmucorp Dalamud 使用 API12，我們提供了相容版本的自訂插件倉庫：
+
+**倉庫網址：**
+```
+https://raw.githubusercontent.com/cycleapple/DalamudPlugins-TW/main/repo.json
+```
+
+**可用插件：**
+
+| 插件 | 版本 | 說明 |
+|------|------|------|
+| Penumbra | 1.2.0.0 | Mod 載入管理器 |
+| Simple Tweaks | 1.10.10.0 | 生活品質改善 |
+| Brio | 0.5.1.2 | 增強版 GPose 工具 |
+| Glamourer | 1.4.0.1 | 外觀修改 |
+| CustomizePlus | 2.0.7.22 | 角色自訂 |
+
+**如何新增：**
+1. 在遊戲中開啟 Dalamud 設定（`/xlsettings`）
+2. 前往「實驗性」分頁
+3. 將倉庫網址新增到「自訂插件倉庫」
+4. 儲存並瀏覽插件安裝程式
+
+更多插件請訪問：[DalamudPlugins-TW](https://github.com/cycleapple/DalamudPlugins-TW)
 
 ## 從原始碼編譯
 
 ```bash
 # 複製專案
-git clone https://github.com/your-repo/XIVTCLauncher.git
+git clone https://github.com/cycleapple/XIVTCLauncher.git
 cd XIVTCLauncher
 
 # 編譯專案
@@ -39,6 +104,9 @@ dotnet build
 
 # 執行應用程式
 dotnet run
+
+# 發佈版本
+dotnet publish -c Release -r win-x64 --self-contained false
 ```
 
 ## 設定
@@ -48,50 +116,9 @@ dotnet run
 ### 遊戲路徑
 
 台灣版 FFXIV 預設安裝路徑：
-
 ```
 C:\Program Files\USERJOY GAMES\FINAL FANTASY XIV TC
 ```
-
-## Dalamud 插件支援
-
-本啟動器支援 [Dalamud](https://github.com/goatcorp/Dalamud) 插件注入，並針對台灣/中國版客戶端進行相容性調整。
-
-### 推薦的 Dalamud 分支
-
-針對台灣/中國版客戶端，我們推薦使用 [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud)：
-
-- **Dalamud CN**: [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) - 持續維護的中文客戶端 Dalamud 分支
-- **FFXIVClientStructs**: 使用 [Dalamud-DailyRoutines/FFXIVClientStructs](https://github.com/Dalamud-DailyRoutines/FFXIVClientStructs) 作為子模組
-
-### 從原始碼編譯 Dalamud
-
-```bash
-# 包含子模組一起複製
-git clone --recursive https://github.com/yanmucorp/Dalamud.git
-
-# 或者已經複製過，初始化子模組
-git submodule update --init --recursive
-
-# 編譯
-dotnet build -c Release
-```
-
-### 使用方式
-
-1. 從原始碼編譯 Dalamud（參考上方步驟）或從 [yanmucorp releases](https://github.com/yanmucorp/Dalamud/releases) 下載
-2. 在設定中，將 **Local Dalamud Path** 設為你的 Dalamud 編譯目錄（例如：`E:\FFXIV\Dalamud\bin\Release`）
-3. 在設定中啟用 Dalamud
-4. 如有需要，調整注入延遲時間（預設值適用於大多數情況）
-5. 啟動遊戲 - Assets 會自動從 ottercorp 下載，然後 Dalamud 會被注入
-
-> **注意**：Assets 從 [ottercorp](https://aonyx.ffxiv.wang) 下載，與 yanmucorp Dalamud 相容。Dalamud 本體需要自行提供。
-
-## 這樣做安全嗎？
-
-XIVTCLauncher 本身只是一個登入工具，它使用與官方啟動器相同的方式來啟動遊戲。
-
-如果你選擇使用 Dalamud 插件，請注意這是對遊戲的第三方修改。據我們所知，目前沒有人因為使用此類工具而遇到問題，但我們無法保證這一點。
 
 ## 免責聲明
 
@@ -112,8 +139,8 @@ XIVTCLauncher 的使用可能不符合遊戲的服務條款。我們盡力讓它
 - [goatcorp/FFXIVQuickLauncher](https://github.com/goatcorp/FFXIVQuickLauncher) - 原始靈感來源與 Dalamud 框架
 - [goatcorp/Dalamud](https://github.com/goatcorp/Dalamud) - 插件框架
 - [yanmucorp/Dalamud](https://github.com/yanmucorp/Dalamud) - 中文客戶端 Dalamud 分支
-- [ottercorp/FFXIVQuickLauncher](https://github.com/ottercorp/FFXIVQuickLauncher) - 中文客戶端啟動器與 asset 伺服器
-- [Dalamud-DailyRoutines/FFXIVClientStructs](https://github.com/Dalamud-DailyRoutines/FFXIVClientStructs) - 中文客戶端結構
+- [ottercorp/FFXIVQuickLauncher](https://github.com/ottercorp/FFXIVQuickLauncher) - 中文客戶端啟動器與 Asset 伺服器
+- [cycleapple/DalamudPlugins-TW](https://github.com/cycleapple/DalamudPlugins-TW) - 台灣客戶端插件倉庫
 - [MaterialDesignInXAML](https://github.com/MaterialDesignInXAML/MaterialDesignInXamlToolkit) - UI 工具包
 
 ## 法律聲明

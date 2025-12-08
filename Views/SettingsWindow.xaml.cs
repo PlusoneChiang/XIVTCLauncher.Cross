@@ -21,20 +21,26 @@ public partial class SettingsWindow : Window
             GamePath = settings.GamePath,
             EnableDalamud = settings.EnableDalamud,
             DalamudInjectionDelay = settings.DalamudInjectionDelay,
+            DalamudSourceMode = settings.DalamudSourceMode,
             LocalDalamudPath = settings.LocalDalamudPath
         };
 
+        // Load settings into UI
         GamePathTextBox.Text = Settings.GamePath;
         EnableDalamudCheckBox.IsChecked = Settings.EnableDalamud;
         InjectionDelayTextBox.Text = Settings.DalamudInjectionDelay.ToString();
         LocalDalamudPathTextBox.Text = Settings.LocalDalamudPath;
+
+        // Set Dalamud source mode
+        AutoDownloadRadio.IsChecked = Settings.DalamudSourceMode == DalamudSourceMode.AutoDownload;
+        LocalPathRadio.IsChecked = Settings.DalamudSourceMode == DalamudSourceMode.LocalPath;
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Select FFXIV Installation Folder"
+            Title = "選擇 FFXIV 安裝資料夾"
         };
 
         if (dialog.ShowDialog() == true)
@@ -53,7 +59,7 @@ public partial class SettingsWindow : Window
     {
         var dialog = new OpenFolderDialog
         {
-            Title = "Select Local Dalamud Folder"
+            Title = "選擇本地 Dalamud 資料夾"
         };
 
         if (dialog.ShowDialog() == true)
@@ -69,8 +75,8 @@ public partial class SettingsWindow : Window
             else
             {
                 MessageBox.Show(
-                    "Dalamud.Injector.exe not found in the selected folder.\n\nPlease select a folder containing a valid Dalamud build.",
-                    "Invalid Dalamud Path",
+                    "在選擇的資料夾中找不到 Dalamud.Injector.exe\n\n請選擇包含有效 Dalamud 建置的資料夾。",
+                    "無效的 Dalamud 路徑",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
             }
@@ -81,7 +87,7 @@ public partial class SettingsWindow : Window
     {
         if (string.IsNullOrWhiteSpace(GamePathTextBox.Text))
         {
-            MessageBox.Show("Please select a game path.", "Invalid Path", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("請選擇遊戲路徑。", "路徑無效", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -91,8 +97,8 @@ public partial class SettingsWindow : Window
         if (!System.IO.File.Exists(exePath))
         {
             var result = MessageBox.Show(
-                $"ffxiv_dx11.exe not found at:\n{exePath}\n\nAre you sure this is the correct path?",
-                "Warning",
+                $"在以下位置找不到 ffxiv_dx11.exe：\n{exePath}\n\n確定這是正確的路徑嗎？",
+                "警告",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);
 
@@ -105,16 +111,19 @@ public partial class SettingsWindow : Window
         Settings.GamePath = gamePath;
         Settings.EnableDalamud = EnableDalamudCheckBox.IsChecked ?? false;
         Settings.DalamudInjectionDelay = int.TryParse(InjectionDelayTextBox.Text, out var delay) ? delay : 0;
+        Settings.DalamudSourceMode = AutoDownloadRadio.IsChecked == true
+            ? DalamudSourceMode.AutoDownload
+            : DalamudSourceMode.LocalPath;
         Settings.LocalDalamudPath = LocalDalamudPathTextBox.Text;
 
-        // Validate local Dalamud path if Dalamud is enabled
-        if (Settings.EnableDalamud)
+        // Validate local Dalamud path if using local path mode
+        if (Settings.EnableDalamud && Settings.DalamudSourceMode == DalamudSourceMode.LocalPath)
         {
             if (string.IsNullOrWhiteSpace(Settings.LocalDalamudPath))
             {
                 MessageBox.Show(
-                    "Please select a local Dalamud folder.\n\n台版需要自行編譯的 Dalamud 才能使用。",
-                    "Local Dalamud Required",
+                    "請選擇本地 Dalamud 資料夾。",
+                    "需要 Dalamud 路徑",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
@@ -124,8 +133,8 @@ public partial class SettingsWindow : Window
             if (!System.IO.File.Exists(injectorPath))
             {
                 MessageBox.Show(
-                    "The selected local Dalamud folder does not contain Dalamud.Injector.exe.",
-                    "Invalid Local Dalamud",
+                    "選擇的本地 Dalamud 資料夾中沒有 Dalamud.Injector.exe。",
+                    "無效的本地 Dalamud",
                     MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;

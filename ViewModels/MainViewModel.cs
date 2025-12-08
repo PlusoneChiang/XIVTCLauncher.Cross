@@ -47,10 +47,13 @@ public partial class MainViewModel : ObservableObject
         {
             try
             {
-                // Configure local Dalamud path
+                // Configure Dalamud source mode
+                _dalamudService.SourceMode = _settings.DalamudSourceMode;
                 _dalamudService.LocalDalamudPath = _settings.LocalDalamudPath;
 
-                StatusMessage = "Loading local Dalamud...";
+                StatusMessage = _settings.DalamudSourceMode == DalamudSourceMode.AutoDownload
+                    ? "準備 Dalamud..."
+                    : "載入本地 Dalamud...";
                 await _dalamudService.EnsureDalamudAsync();
             }
             catch (Exception ex)
@@ -204,19 +207,22 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            // Configure local Dalamud path
+            // Configure Dalamud source mode
+            _dalamudService.SourceMode = _settings.DalamudSourceMode;
             _dalamudService.LocalDalamudPath = _settings.LocalDalamudPath;
 
-            StatusMessage = "Loading local Dalamud...";
+            StatusMessage = _settings.DalamudSourceMode == DalamudSourceMode.AutoDownload
+                ? "準備 Dalamud..."
+                : "載入本地 Dalamud...";
             await _dalamudService.EnsureDalamudAsync();
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Failed to prepare Dalamud: {ex.Message}";
+            StatusMessage = $"準備 Dalamud 失敗: {ex.Message}";
             return;
         }
 
-        StatusMessage = "Launching game with TEST session (will disconnect at lobby)...";
+        StatusMessage = "以測試 Session 啟動遊戲 (會在大廳斷線)...";
 
         try
         {

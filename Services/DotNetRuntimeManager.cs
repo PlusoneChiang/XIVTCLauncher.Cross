@@ -9,32 +9,29 @@ namespace FFXIVSimpleLauncher.Services;
 
 /// <summary>
 /// Manages .NET Runtime downloads for Dalamud injection.
-/// Downloads both .NET Core and Windows Desktop runtimes.
+/// Downloads from NuGet sources (same as XIVLauncherCN/ottercorp).
 /// </summary>
 public class DotNetRuntimeManager
 {
-    // Runtime download endpoints (same as XIVLauncher)
-    private const string RUNTIME_BASE_URL = "https://kamori.goats.dev/Dalamud/Release/Runtime";
-    private const string DOTNET_URL_TEMPLATE = "{0}/DotNet/{1}";
-    private const string DESKTOP_URL_TEMPLATE = "{0}/WindowsDesktop/{1}";
+    // NuGet package sources
+    private const string NUGET_BASE_URL = "https://api.nuget.org/v3-flatcontainer";
+    private const string NUGET_MIRROR_URL = "https://repo.huaweicloud.com/artifactory/api/nuget/v3/nuget-remote";
 
-    // Alternative mirror (ottercorp for CN users)
-    private const string RUNTIME_BASE_URL_CN = "https://aonyx.ffxiv.wang/Dalamud/Release/Runtime";
+    // Package names
+    private const string NETCORE_PACKAGE = "microsoft.netcore.app.runtime.win-x64";
+    private const string DESKTOP_PACKAGE = "microsoft.windowsdesktop.app.runtime.win-x64";
 
-    // Version info endpoints
-    private const string VERSION_INFO_URL = "https://kamori.goats.dev/Dalamud/Release/VersionInfo?track=release";
-    private const string VERSION_INFO_URL_CN = "https://aonyx.ffxiv.wang/Dalamud/Release/VersionInfo?track=release";
+    // Version info endpoints (ottercorp/aonyx)
+    private const string VERSION_INFO_URL = "https://aonyx.ffxiv.wang/Dalamud/Release/VersionInfo?track=release";
 
     private readonly DirectoryInfo _runtimeDirectory;
     private readonly HttpClient _httpClient;
-    private readonly bool _useCnMirror;
 
     public event Action<string>? StatusChanged;
     public event Action<double>? ProgressChanged;
 
     /// <summary>
     /// The required .NET runtime version for Dalamud.
-    /// This is fetched from the version info API.
     /// </summary>
     public string? RequiredVersion { get; private set; }
 
@@ -46,16 +43,47 @@ public class DotNetRuntimeManager
     public DotNetRuntimeManager(DirectoryInfo runtimeDirectory, bool useCnMirror = false)
     {
         _runtimeDirectory = runtimeDirectory;
-        _useCnMirror = useCnMirror;
         _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
         _httpClient.DefaultRequestHeaders.CacheControl = new CacheControlHeaderValue { NoCache = true };
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("XIVTCLauncher/1.0");
     }
-
-    private string GetBaseUrl() => _useCnMirror ? RUNTIME_BASE_URL_CN : RUNTIME_BASE_URL;
-    private string GetVersionInfoUrl() => _useCnMirror ? VERSION_INFO_URL_CN : VERSION_INFO_URL;
 
     private void ReportStatus(string status) => StatusChanged?.Invoke(status);
     private void ReportProgress(double progress) => ProgressChanged?.Invoke(progress);
+
+    /// <summary>
+    /// Check if we can reach NuGet directly (use mirror if not).
+    /// </summary>
+    private async Task<bool> CanReachNuGetAsync()
+    {
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var response = await _httpClient.GetAsync("https://api.nuget.org/v3/index.json", cts.Token);
+            return response.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get the NuGet base URL (official or mirror).
+    /// </summary>
+    private async Task<string> GetNuGetBaseUrlAsync()
+    {
+        if (await CanReachNuGetAsync())
+        {
+            ReportStatus("Using NuGet official source");
+            return NUGET_BASE_URL;
+        }
+        else
+        {
+            ReportStatus("Using Huawei Cloud mirror");
+            return NUGET_MIRROR_URL;
+        }
+    }
 
     /// <summary>
     /// Fetch the required runtime version from the Dalamud version info API.
@@ -65,8 +93,7 @@ public class DotNetRuntimeManager
         try
         {
             ReportStatus("Fetching Dalamud version info...");
-            var url = GetVersionInfoUrl();
-            var json = await _httpClient.GetStringAsync(url);
+            var json = await _httpClient.GetStringAsync(VERSION_INFO_URL);
             var versionInfo = JsonSerializer.Deserialize<DalamudVersionInfo>(json);
 
             if (versionInfo != null)
@@ -80,6 +107,10 @@ public class DotNetRuntimeManager
         catch (Exception ex)
         {
             ReportStatus($"Failed to fetch version info: {ex.Message}");
+            // Default to 9.0.3 if fetch fails
+            RequiredVersion = "9.0.3";
+            ReportStatus($"Using default version: {RequiredVersion}");
+            return RequiredVersion;
         }
 
         return null;
@@ -93,8 +124,30 @@ public class DotNetRuntimeManager
         if (string.IsNullOrEmpty(RequiredVersion))
             return false;
 
-        var requiredDirs = GetRuntimeDirectories(RequiredVersion);
-        return requiredDirs.All(d => d.Exists && d.GetFiles().Length > 0);
+        return ValidateRuntimeInstallation(RequiredVersion);
+    }
+
+    /// <summary>
+    /// Validate that a runtime version is properly installed.
+    /// </summary>
+    private bool ValidateRuntimeInstallation(string version)
+    {
+        // Check hostfxr.dll
+        var hostfxrPath = Path.Combine(_runtimeDirectory.FullName, "host", "fxr", version, "hostfxr.dll");
+        if (!File.Exists(hostfxrPath))
+            return false;
+
+        // Check NETCore.App
+        var netcorePath = Path.Combine(_runtimeDirectory.FullName, "shared", "Microsoft.NETCore.App", version);
+        if (!Directory.Exists(netcorePath) || !File.Exists(Path.Combine(netcorePath, "System.Private.CoreLib.dll")))
+            return false;
+
+        // Check WindowsDesktop.App
+        var desktopPath = Path.Combine(_runtimeDirectory.FullName, "shared", "Microsoft.WindowsDesktop.App", version);
+        if (!Directory.Exists(desktopPath) || !File.Exists(Path.Combine(desktopPath, "PresentationCore.dll")))
+            return false;
+
+        return true;
     }
 
     /// <summary>
@@ -102,21 +155,7 @@ public class DotNetRuntimeManager
     /// </summary>
     public bool IsVersionInstalled(string version)
     {
-        var requiredDirs = GetRuntimeDirectories(version);
-        return requiredDirs.All(d => d.Exists && d.GetFiles().Length > 0);
-    }
-
-    /// <summary>
-    /// Get the runtime directories for a specific version.
-    /// </summary>
-    private DirectoryInfo[] GetRuntimeDirectories(string version)
-    {
-        return new[]
-        {
-            new DirectoryInfo(Path.Combine(_runtimeDirectory.FullName, "host", "fxr", version)),
-            new DirectoryInfo(Path.Combine(_runtimeDirectory.FullName, "shared", "Microsoft.NETCore.App", version)),
-            new DirectoryInfo(Path.Combine(_runtimeDirectory.FullName, "shared", "Microsoft.WindowsDesktop.App", version))
-        };
+        return ValidateRuntimeInstallation(version);
     }
 
     /// <summary>
@@ -141,13 +180,10 @@ public class DotNetRuntimeManager
             return;
         }
 
-        if (!_runtimeDirectory.Exists)
-            _runtimeDirectory.Create();
-
         var version = RequiredVersion;
         ReportStatus($"Checking .NET Runtime {version}...");
 
-        // Check if runtime already exists
+        // Check if runtime already exists and is valid
         if (IsRuntimeInstalled())
         {
             ReportStatus($".NET Runtime {version} is already installed");
@@ -165,8 +201,8 @@ public class DotNetRuntimeManager
         }
 
         // Need to download
-        ReportStatus($"Downloading .NET Runtime {version}...");
-        await DownloadRuntimeAsync(version);
+        ReportStatus($"Downloading .NET Runtime {version} from NuGet...");
+        await DownloadRuntimeFromNuGetAsync(version);
 
         // Save version file
         await File.WriteAllTextAsync(versionFile.FullName, version);
@@ -174,41 +210,146 @@ public class DotNetRuntimeManager
     }
 
     /// <summary>
-    /// Download and extract the .NET runtime.
+    /// Download and extract the .NET runtime from NuGet.
     /// </summary>
-    private async Task DownloadRuntimeAsync(string version)
+    private async Task DownloadRuntimeFromNuGetAsync(string version)
     {
-        var baseUrl = GetBaseUrl();
-        var tempFile = Path.GetTempFileName();
+        // Clean and recreate runtime directory
+        if (_runtimeDirectory.Exists)
+        {
+            try
+            {
+                _runtimeDirectory.Delete(true);
+            }
+            catch (Exception ex)
+            {
+                ReportStatus($"Warning: Could not clean runtime directory: {ex.Message}");
+            }
+        }
+        _runtimeDirectory.Create();
+
+        var baseUrl = await GetNuGetBaseUrlAsync();
+        var tempDir = Path.Combine(Path.GetTempPath(), $"dotnet-runtime-{Guid.NewGuid()}");
+        Directory.CreateDirectory(tempDir);
 
         try
         {
-            // Download .NET Core runtime
-            var dotnetUrl = string.Format(DOTNET_URL_TEMPLATE, baseUrl, version);
-            ReportStatus($"Downloading .NET Core Runtime {version}...");
-            ReportStatus($"URL: {dotnetUrl}");
-            await DownloadFileAsync(dotnetUrl, tempFile);
+            // Extract major version for lib path (e.g., "9.0.3" -> "9.0")
+            var versionParts = version.Split('.');
+            var dotnetMajorMinor = versionParts.Length >= 2 ? $"{versionParts[0]}.{versionParts[1]}" : "9.0";
+
+            // Download and extract .NET Core runtime
+            ReportStatus($"Downloading Microsoft.NETCore.App.Runtime {version}...");
+            var netcoreNupkg = Path.Combine(tempDir, "netcore.nupkg");
+            var netcoreUrl = $"{baseUrl}/{NETCORE_PACKAGE}/{version.ToLower()}/{NETCORE_PACKAGE}.{version.ToLower()}.nupkg";
+            await DownloadFileAsync(netcoreUrl, netcoreNupkg);
 
             ReportStatus("Extracting .NET Core Runtime...");
-            await ExtractRuntimeAsync(tempFile);
+            await ExtractNuGetPackageAsync(netcoreNupkg, version, dotnetMajorMinor, "Microsoft.NETCore.App");
 
-            // Download Windows Desktop runtime
-            var desktopUrl = string.Format(DESKTOP_URL_TEMPLATE, baseUrl, version);
-            ReportStatus($"Downloading Windows Desktop Runtime {version}...");
-            ReportStatus($"URL: {desktopUrl}");
-            await DownloadFileAsync(desktopUrl, tempFile);
+            // Download and extract Windows Desktop runtime
+            ReportStatus($"Downloading Microsoft.WindowsDesktop.App.Runtime {version}...");
+            var desktopNupkg = Path.Combine(tempDir, "desktop.nupkg");
+            var desktopUrl = $"{baseUrl}/{DESKTOP_PACKAGE}/{version.ToLower()}/{DESKTOP_PACKAGE}.{version.ToLower()}.nupkg";
+            await DownloadFileAsync(desktopUrl, desktopNupkg);
 
             ReportStatus("Extracting Windows Desktop Runtime...");
-            await ExtractRuntimeAsync(tempFile);
+            await ExtractNuGetPackageAsync(desktopNupkg, version, dotnetMajorMinor, "Microsoft.WindowsDesktop.App");
+
+            // Move hostfxr.dll to correct location
+            await MoveHostFxrAsync(version);
 
             // Cleanup old versions
             CleanupOldVersions(version);
+
+            ReportStatus($".NET Runtime {version} installed successfully");
         }
         finally
         {
-            if (File.Exists(tempFile))
-                File.Delete(tempFile);
+            // Cleanup temp directory
+            try
+            {
+                if (Directory.Exists(tempDir))
+                    Directory.Delete(tempDir, true);
+            }
+            catch { }
         }
+    }
+
+    /// <summary>
+    /// Extract specific directories from NuGet package.
+    /// </summary>
+    private async Task ExtractNuGetPackageAsync(string nupkgPath, string version, string dotnetVersion, string frameworkName)
+    {
+        var targetDir = Path.Combine(_runtimeDirectory.FullName, "shared", frameworkName, version);
+        Directory.CreateDirectory(targetDir);
+
+        await Task.Run(() =>
+        {
+            using var archive = ZipFile.OpenRead(nupkgPath);
+
+            // Paths to extract from nupkg
+            var nativePath = "runtimes/win-x64/native/";
+            var libPath = $"runtimes/win-x64/lib/net{dotnetVersion}/";
+
+            foreach (var entry in archive.Entries)
+            {
+                // Extract native files
+                if (entry.FullName.StartsWith(nativePath, StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrEmpty(entry.Name))
+                {
+                    var destPath = Path.Combine(targetDir, entry.Name);
+                    ExtractEntry(entry, destPath);
+                }
+                // Extract lib files
+                else if (entry.FullName.StartsWith(libPath, StringComparison.OrdinalIgnoreCase) &&
+                         !string.IsNullOrEmpty(entry.Name))
+                {
+                    var destPath = Path.Combine(targetDir, entry.Name);
+                    ExtractEntry(entry, destPath);
+                }
+            }
+        });
+    }
+
+    /// <summary>
+    /// Extract a single entry to destination.
+    /// </summary>
+    private void ExtractEntry(ZipArchiveEntry entry, string destPath)
+    {
+        var destDir = Path.GetDirectoryName(destPath);
+        if (!string.IsNullOrEmpty(destDir))
+            Directory.CreateDirectory(destDir);
+
+        entry.ExtractToFile(destPath, overwrite: true);
+    }
+
+    /// <summary>
+    /// Move hostfxr.dll from shared to host/fxr directory.
+    /// </summary>
+    private async Task MoveHostFxrAsync(string version)
+    {
+        await Task.Run(() =>
+        {
+            var sourcePath = Path.Combine(_runtimeDirectory.FullName, "shared", "Microsoft.NETCore.App", version, "hostfxr.dll");
+            var targetDir = Path.Combine(_runtimeDirectory.FullName, "host", "fxr", version);
+            var targetPath = Path.Combine(targetDir, "hostfxr.dll");
+
+            if (File.Exists(sourcePath))
+            {
+                Directory.CreateDirectory(targetDir);
+
+                if (File.Exists(targetPath))
+                    File.Delete(targetPath);
+
+                File.Move(sourcePath, targetPath);
+                ReportStatus($"Moved hostfxr.dll to {targetDir}");
+            }
+            else
+            {
+                ReportStatus($"Warning: hostfxr.dll not found at {sourcePath}");
+            }
+        });
     }
 
     /// <summary>
@@ -216,6 +357,8 @@ public class DotNetRuntimeManager
     /// </summary>
     private async Task DownloadFileAsync(string url, string destinationPath)
     {
+        ReportStatus($"Downloading: {url}");
+
         using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
 
         if (!response.IsSuccessStatusCode)
@@ -228,7 +371,7 @@ public class DotNetRuntimeManager
         var downloadedBytes = 0L;
 
         using var contentStream = await response.Content.ReadAsStreamAsync();
-        using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+        using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
 
         var buffer = new byte[81920];
         int bytesRead;
@@ -243,31 +386,6 @@ public class DotNetRuntimeManager
                 ReportProgress((double)downloadedBytes / totalBytes * 100);
             }
         }
-    }
-
-    /// <summary>
-    /// Extract runtime ZIP to the runtime directory.
-    /// </summary>
-    private async Task ExtractRuntimeAsync(string zipPath)
-    {
-        await Task.Run(() =>
-        {
-            using var archive = ZipFile.OpenRead(zipPath);
-            foreach (var entry in archive.Entries)
-            {
-                if (string.IsNullOrEmpty(entry.Name))
-                    continue;
-
-                var destPath = Path.Combine(_runtimeDirectory.FullName, entry.FullName);
-                var destDir = Path.GetDirectoryName(destPath);
-
-                if (!string.IsNullOrEmpty(destDir))
-                    Directory.CreateDirectory(destDir);
-
-                // Overwrite existing files
-                entry.ExtractToFile(destPath, overwrite: true);
-            }
-        });
     }
 
     /// <summary>
@@ -348,14 +466,10 @@ public class DotNetRuntimeManager
 
         if (!string.IsNullOrEmpty(RequiredVersion))
         {
-            // Delete existing runtime directories
-            var requiredDirs = GetRuntimeDirectories(RequiredVersion);
-            foreach (var dir in requiredDirs)
+            // Delete existing runtime directory
+            if (_runtimeDirectory.Exists)
             {
-                if (dir.Exists)
-                {
-                    try { dir.Delete(true); } catch { }
-                }
+                try { _runtimeDirectory.Delete(true); } catch { }
             }
         }
 

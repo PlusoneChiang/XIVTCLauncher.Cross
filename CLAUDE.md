@@ -47,9 +47,19 @@ FFXIVSimpleLauncher is a WPF desktop application (.NET 8.0) for launching Final 
 The launcher integrates with Dalamud plugin framework (from XIVLauncher/goatcorp):
 
 - `DalamudService` handles downloading and updating Dalamud, .NET Runtime, and Assets
-- Downloads from `kamori.goats.dev` (official Dalamud distribution server)
+- `DotNetRuntimeManager` manages automatic .NET Runtime downloads
+- Downloads from `kamori.goats.dev` (official) or `aonyx.ffxiv.wang` (CN mirror)
 - Supports version checking and integrity verification via MD5 hashes
 - Injects via `Dalamud.Injector.exe` with entrypoint mode
+
+**.NET Runtime Auto-Download**:
+- Automatically downloads .NET Core Runtime and Windows Desktop Runtime
+- Stored in `%APPDATA%/FFXIVSimpleLauncher/Dalamud/Runtime/`
+- Directory structure:
+  - `Runtime/host/fxr/{version}/` - Host FXR
+  - `Runtime/shared/Microsoft.NETCore.App/{version}/` - .NET Core
+  - `Runtime/shared/Microsoft.WindowsDesktop.App/{version}/` - Windows Desktop
+- Falls back to XIVLauncher's runtime or system .NET if available
 
 **Settings**:
 - `EnableDalamud` - Toggle plugin support
