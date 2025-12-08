@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="設定"
-        Height="580" Width="520"
+        Height="680" Width="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         Background="{DynamicResource MaterialDesignPaper}"
@@ -12,6 +12,8 @@
 
     <Grid Margin="24">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -45,13 +47,85 @@
                     Style="{StaticResource MaterialDesignOutlinedButton}"/>
         </Grid>
 
-        <!-- Dalamud Section -->
+        <!-- OTP Section -->
         <TextBlock Grid.Row="2"
-                   Text="Dalamud (插件系統)"
+                   Text="自動 OTP (一次性密碼)"
                    Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                    Margin="0,24,0,8"/>
 
         <StackPanel Grid.Row="3" Orientation="Vertical">
+            <CheckBox x:Name="AutoOtpCheckBox"
+                      Content="啟用自動 OTP"
+                      Style="{StaticResource MaterialDesignCheckBox}"
+                      Margin="0,0,0,8"/>
+
+            <TextBlock Text="啟用後登入時會自動填入 OTP 驗證碼"
+                       FontSize="11"
+                       Foreground="Gray"
+                       Margin="0,0,0,12"/>
+
+            <!-- OTP Secret Input -->
+            <Grid IsEnabled="{Binding IsChecked, ElementName=AutoOtpCheckBox}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBox Grid.Column="0"
+                         x:Name="OtpSecretTextBox"
+                         materialDesign:HintAssist.Hint="OTP 密鑰 (Base32)"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Margin="0,0,8,0"/>
+
+                <Button Grid.Column="1"
+                        x:Name="SaveOtpButton"
+                        Content="儲存密鑰"
+                        Click="SaveOtpSecret_Click"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
+            </Grid>
+
+            <!-- Current OTP Display -->
+            <StackPanel Orientation="Horizontal"
+                        Margin="0,12,0,0"
+                        Visibility="{Binding IsChecked, ElementName=AutoOtpCheckBox, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <TextBlock Text="目前 OTP："
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+                <TextBlock x:Name="CurrentOtpText"
+                           Text="------"
+                           FontFamily="Consolas"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource PrimaryHueMidBrush}"
+                           VerticalAlignment="Center"/>
+                <TextBlock x:Name="OtpCountdownText"
+                           Text="(--s)"
+                           FontSize="12"
+                           Foreground="Gray"
+                           VerticalAlignment="Center"
+                           Margin="8,0,0,0"/>
+                <Button x:Name="ClearOtpButton"
+                        Content="清除密鑰"
+                        Click="ClearOtpSecret_Click"
+                        Style="{StaticResource MaterialDesignFlatButton}"
+                        Foreground="OrangeRed"
+                        Margin="16,0,0,0"/>
+            </StackPanel>
+
+            <TextBlock Text="密鑰可從 SE 帳號設定的 OTP 頁面取得 (顯示為 QR Code 下方的文字)"
+                       FontSize="11"
+                       Foreground="Gray"
+                       TextWrapping="Wrap"
+                       Margin="0,8,0,0"/>
+        </StackPanel>
+
+        <!-- Dalamud Section -->
+        <TextBlock Grid.Row="4"
+                   Text="Dalamud (插件系統)"
+                   Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                   Margin="0,24,0,8"/>
+
+        <StackPanel Grid.Row="5" Orientation="Vertical">
             <CheckBox x:Name="EnableDalamudCheckBox"
                       Content="啟用 Dalamud"
                       Style="{StaticResource MaterialDesignCheckBox}"
@@ -143,7 +217,7 @@
         </StackPanel>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="儲存"
                     Click="SaveButton_Click"
                     Style="{StaticResource MaterialDesignRaisedButton}"

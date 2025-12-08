@@ -20,6 +20,11 @@ public class LauncherSettings
     public bool RememberPassword { get; set; } = false;
     public string GamePath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Enable automatic OTP generation (requires OTP secret to be configured).
+    /// </summary>
+    public bool AutoOtp { get; set; } = false;
+
     // Dalamud settings
     public bool EnableDalamud { get; set; } = false;
     public int DalamudInjectionDelay { get; set; } = 0;

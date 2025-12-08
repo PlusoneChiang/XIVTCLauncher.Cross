@@ -83,8 +83,8 @@ public partial class MainViewModel : ObservableObject
             savedPassword = _credentialService.GetPassword(savedEmail);
         }
 
-        // Open WebView2 login window with saved credentials
-        var webLoginWindow = new WebLoginWindow(_settings.GamePath, savedEmail, savedPassword);
+        // Open WebView2 login window with saved credentials and auto OTP
+        var webLoginWindow = new WebLoginWindow(_settings.GamePath, savedEmail, savedPassword, _settings.AutoOtp);
         var dialogResult = webLoginWindow.ShowDialog();
 
         if (dialogResult == true && !string.IsNullOrEmpty(webLoginWindow.SessionId))

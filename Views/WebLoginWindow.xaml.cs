@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
+using FFXIVSimpleLauncher.Services;
 using Microsoft.Web.WebView2.Core;
 
 namespace FFXIVSimpleLauncher.Views;
@@ -163,12 +164,23 @@ public partial class WebLoginWindow : Window
     private readonly string _gamePath;
     private readonly string? _savedEmail;
     private readonly string? _savedPassword;
+    private readonly bool _autoOtp;
+    private readonly OtpService? _otpService;
 
-    public WebLoginWindow(string gamePath, string? savedEmail = null, string? savedPassword = null)
+    public WebLoginWindow(string gamePath, string? savedEmail = null, string? savedPassword = null, bool autoOtp = false)
     {
         _gamePath = gamePath;
         _savedEmail = savedEmail;
         _savedPassword = savedPassword;
+        _autoOtp = autoOtp;
+
+        // Initialize OTP service if auto OTP is enabled
+        if (_autoOtp)
+        {
+            _otpService = new OtpService();
+            _otpService.Initialize();
+        }
+
         InitializeComponent();
         InitializeWebView();
     }
@@ -215,6 +227,18 @@ public partial class WebLoginWindow : Window
                         ";
                         await WebView.CoreWebView2.ExecuteScriptAsync(script);
                         StatusText.Text = "已載入帳號資料 - 請登入";
+                    }
+
+                    // Auto-fill OTP if enabled and configured
+                    if (_autoOtp && _otpService != null && _otpService.IsConfigured)
+                    {
+                        var otpCode = _otpService.GenerateCode();
+                        if (!string.IsNullOrEmpty(otpCode))
+                        {
+                            var otpScript = $"document.getElementById('otp').value = '{otpCode}';";
+                            await WebView.CoreWebView2.ExecuteScriptAsync(otpScript);
+                            StatusText.Text = StatusText.Text.Replace("請登入", "已自動填入 OTP");
+                        }
                     }
                 }
                 else
