@@ -16,6 +16,7 @@ public class LoginBridge
     private static readonly HttpClient _httpClient = new();
     private readonly WebLoginWindow _window;
     private readonly string _gamePath;
+    private readonly OtpService? _otpService;
 
     static LoginBridge()
     {
@@ -24,10 +25,24 @@ public class LoginBridge
         _httpClient.DefaultRequestHeaders.Add("Accept", "*/*");
     }
 
-    public LoginBridge(WebLoginWindow window, string gamePath)
+    public LoginBridge(WebLoginWindow window, string gamePath, OtpService? otpService = null)
     {
         _window = window;
         _gamePath = gamePath;
+        _otpService = otpService;
+    }
+
+    /// <summary>
+    /// Get the current OTP code from the OTP service.
+    /// Called from JavaScript when auto OTP is enabled.
+    /// </summary>
+    public string GetOtpCode()
+    {
+        if (_otpService != null && _otpService.IsConfigured)
+        {
+            return _otpService.GenerateCode();
+        }
+        return "";
     }
 
     public async Task<string> Login(string email, string password, string otp, string recaptchaToken, bool rememberMe)
@@ -197,8 +212,8 @@ public partial class WebLoginWindow : Window
             var env = await CoreWebView2Environment.CreateAsync(null, userDataFolder);
             await WebView.EnsureCoreWebView2Async(env);
 
-            // Add JavaScript bridge for login
-            _bridge = new LoginBridge(this, _gamePath);
+            // Add JavaScript bridge for login (pass OtpService for auto OTP)
+            _bridge = new LoginBridge(this, _gamePath, _otpService);
             WebView.CoreWebView2.AddHostObjectToScript("loginBridge", _bridge);
 
             // Intercept requests to launcher.ffxiv.com.tw
@@ -229,16 +244,16 @@ public partial class WebLoginWindow : Window
                         StatusText.Text = "已載入帳號資料 - 請登入";
                     }
 
-                    // Auto-fill OTP if enabled and configured
+                    // Hide OTP input and show notice if auto OTP is enabled and configured
                     if (_autoOtp && _otpService != null && _otpService.IsConfigured)
                     {
-                        var otpCode = _otpService.GenerateCode();
-                        if (!string.IsNullOrEmpty(otpCode))
-                        {
-                            var otpScript = $"document.getElementById('otp').value = '{otpCode}';";
-                            await WebView.CoreWebView2.ExecuteScriptAsync(otpScript);
-                            StatusText.Text = StatusText.Text.Replace("請登入", "已自動填入 OTP");
-                        }
+                        var hideOtpScript = @"
+                            document.getElementById('otpGroup').style.display = 'none';
+                            document.getElementById('autoOtpNotice').style.display = 'block';
+                            window.autoOtpEnabled = true;
+                        ";
+                        await WebView.CoreWebView2.ExecuteScriptAsync(hideOtpScript);
+                        StatusText.Text = StatusText.Text.Replace("請登入", "已啟用自動 OTP");
                     }
                 }
                 else
@@ -362,9 +377,14 @@ public partial class WebLoginWindow : Window
                 <label>密碼</label>
                 <input type='password' id='password' placeholder='請輸入密碼' required>
             </div>
-            <div class='form-group'>
+            <div class='form-group' id='otpGroup'>
                 <label>OTP 驗證碼 (如有啟用)</label>
                 <input type='text' id='otp' placeholder='6 位數驗證碼 (選填)' maxlength='6'>
+            </div>
+            <div class='form-group auto-otp-notice' id='autoOtpNotice' style='display:none;'>
+                <div style='background: rgba(74,158,255,0.2); padding: 12px 16px; border-radius: 8px; border: 1px solid rgba(74,158,255,0.4);'>
+                    <span style='color: #4a9eff;'>✓ 已啟用自動 OTP - 登入時將自動填入驗證碼</span>
+                </div>
             </div>
             <div class='form-group' style='display:flex;align-items:center;'>
                 <input type='checkbox' id='rememberMe' style='width:auto;margin-right:8px;'>
@@ -398,11 +418,20 @@ public partial class WebLoginWindow : Window
 
                 const email = document.getElementById('email').value;
                 const password = document.getElementById('password').value;
-                const otp = document.getElementById('otp').value || '';
                 const rememberMe = document.getElementById('rememberMe').checked;
 
                 // Call C# backend via WebView2 bridge to bypass CORS
                 const bridge = window.chrome.webview.hostObjects.loginBridge;
+
+                // Get OTP - either from input or auto-generated
+                let otp = '';
+                if (window.autoOtpEnabled) {
+                    // Get fresh OTP code from C# service
+                    otp = await bridge.GetOtpCode();
+                    showStatus('正在使用自動 OTP 驗證...', 'info');
+                } else {
+                    otp = document.getElementById('otp').value || '';
+                }
                 const result = await bridge.Login(email, password, otp, token, rememberMe);
 
                 const data = JSON.parse(result);
