@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
         Title="設定"
-        Height="680" Width="520"
-        MinHeight="500" MinWidth="400"
+        Height="820" Width="520"
+        MinHeight="780" MinWidth="400"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource MaterialDesignPaper}"
@@ -19,42 +19,70 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- Title -->
         <TextBlock Grid.Row="0"
+                   x:Name="TitleText"
                    Text="設定"
                    Style="{StaticResource MaterialDesignHeadline6TextBlock}"
-                   Margin="0,0,0,16"/>
+                   Margin="0,0,0,8"/>
+
+        <!-- First Run Welcome Message -->
+        <materialDesign:Card Grid.Row="1"
+                             x:Name="FirstRunCard"
+                             Visibility="Collapsed"
+                             Padding="16"
+                             Margin="0,0,0,16"
+                             Background="{DynamicResource PrimaryHueMidBrush}">
+            <StackPanel>
+                <TextBlock Text="歡迎使用 XIV TC Launcher！"
+                           FontWeight="Bold"
+                           FontSize="14"
+                           Foreground="White"/>
+                <TextBlock Text="請先設定遊戲安裝路徑，這是啟動器運作的必要設定。"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0"
+                           Foreground="White"
+                           Opacity="0.9"/>
+            </StackPanel>
+        </materialDesign:Card>
 
         <!-- Game Path -->
-        <Grid Grid.Row="1">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
+        <StackPanel Grid.Row="2">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
 
-            <TextBox Grid.Column="0"
-                     x:Name="GamePathTextBox"
-                     materialDesign:HintAssist.Hint="遊戲路徑"
-                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                     Margin="0,0,8,0"/>
+                <TextBox Grid.Column="0"
+                         x:Name="GamePathTextBox"
+                         materialDesign:HintAssist.Hint="遊戲路徑"
+                         Style="{StaticResource MaterialDesignOutlinedTextBox}"
+                         Margin="0,0,8,0"/>
 
-            <Button Grid.Column="1"
-                    Content="瀏覽"
-                    Click="BrowseButton_Click"
-                    Style="{StaticResource MaterialDesignOutlinedButton}"/>
-        </Grid>
+                <Button Grid.Column="1"
+                        Content="瀏覽"
+                        Click="BrowseButton_Click"
+                        Style="{StaticResource MaterialDesignOutlinedButton}"/>
+            </Grid>
+            <TextBlock Text="例如：E:\Program Files\USERJOY GAMES\FINAL FANTASY XIV TC"
+                       FontSize="11"
+                       Foreground="Gray"
+                       Margin="0,4,0,0"/>
+        </StackPanel>
 
         <!-- OTP Section -->
-        <TextBlock Grid.Row="2"
+        <TextBlock Grid.Row="3"
                    Text="自動 OTP (一次性密碼)"
                    Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                    Margin="0,24,0,8"/>
 
-        <StackPanel Grid.Row="3" Orientation="Vertical">
+        <StackPanel Grid.Row="4" Orientation="Vertical">
             <CheckBox x:Name="AutoOtpCheckBox"
                       Content="啟用自動 OTP"
                       Style="{StaticResource MaterialDesignCheckBox}"
@@ -121,12 +149,12 @@
         </StackPanel>
 
         <!-- Dalamud Section -->
-        <TextBlock Grid.Row="4"
+        <TextBlock Grid.Row="5"
                    Text="Dalamud (插件系統)"
                    Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
                    Margin="0,24,0,8"/>
 
-        <StackPanel Grid.Row="5" Orientation="Vertical">
+        <StackPanel Grid.Row="6" Orientation="Vertical">
             <CheckBox x:Name="EnableDalamudCheckBox"
                       Content="啟用 Dalamud"
                       Style="{StaticResource MaterialDesignCheckBox}"
@@ -218,17 +246,21 @@
         </StackPanel>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="儲存"
+        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button x:Name="SaveButton"
+                    Content="儲存"
                     Click="SaveButton_Click"
                     Style="{StaticResource MaterialDesignRaisedButton}"
-                    Width="80"
+                    MinWidth="100"
+                    Padding="16,8"
                     Margin="0,0,8,0"/>
 
-            <Button Content="取消"
+            <Button x:Name="CancelButton"
+                    Content="取消"
                     Click="CancelButton_Click"
                     Style="{StaticResource MaterialDesignOutlinedButton}"
-                    Width="80"/>
+                    MinWidth="80"
+                    Padding="16,8"/>
         </StackPanel>
     </Grid>
 </Window>

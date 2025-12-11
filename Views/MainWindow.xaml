@@ -7,7 +7,7 @@
         xmlns:viewmodels="clr-namespace:FFXIVSimpleLauncher.ViewModels"
         mc:Ignorable="d"
         Title="XIV TC Launcher"
-        Height="350" Width="500"
+        Height="480" Width="500"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResizeWithGrip"
         Background="{DynamicResource MaterialDesignPaper}"
@@ -19,8 +19,13 @@
         <viewmodels:MainViewModel />
     </Window.DataContext>
 
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility"/>
+    </Window.Resources>
+
     <Grid Margin="24">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -47,6 +52,7 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <Button Content="登入"
                         Command="{Binding LoginCommand}"
+                        IsEnabled="{Binding CanLogin}"
                         Style="{StaticResource MaterialDesignRaisedButton}"
                         Width="140"
                         Height="40"
@@ -71,8 +77,173 @@
                     ToolTip="以假的 Session 啟動遊戲來測試 Dalamud 注入 (會在大廳斷線)"/>
         </StackPanel>
 
-        <!-- Status Message with Scroll -->
+        <!-- Update Card (顯示當有更新時或更新中) -->
         <materialDesign:Card Grid.Row="3"
+                             Margin="0,16,0,0"
+                             Padding="16"
+                             Background="{DynamicResource MaterialDesignCardBackground}">
+            <materialDesign:Card.Style>
+                <Style TargetType="materialDesign:Card">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasUpdate}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsUpdating}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding IsCheckingUpdate}" Value="True">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </materialDesign:Card.Style>
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 標題 -->
+                <TextBlock Grid.Row="0"
+                           Text="遊戲更新"
+                           Style="{StaticResource MaterialDesignSubtitle1TextBlock}"
+                           Margin="0,0,0,12"/>
+
+                <!-- 更新資訊 -->
+                <TextBlock Grid.Row="1"
+                           Text="{Binding UpdateInfo}"
+                           FontSize="13"
+                           Foreground="{DynamicResource MaterialDesignBodyLight}"
+                           Margin="0,0,0,12">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding UpdateInfo}" Value="">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+
+                <!-- 檢查中提示 -->
+                <StackPanel Grid.Row="1"
+                            Orientation="Horizontal"
+                            Visibility="{Binding IsCheckingUpdate, Converter={StaticResource BoolToVisibility}}"
+                            Margin="0,0,0,12">
+                    <ProgressBar Style="{StaticResource MaterialDesignCircularProgressBar}"
+                                 IsIndeterminate="True"
+                                 Width="20"
+                                 Height="20"
+                                 Margin="0,0,8,0"/>
+                    <TextBlock Text="檢查更新中..."
+                               VerticalAlignment="Center"
+                               FontSize="13"
+                               Foreground="{DynamicResource MaterialDesignBodyLight}"/>
+                </StackPanel>
+
+                <!-- 進度條 -->
+                <ProgressBar Grid.Row="2"
+                             Value="{Binding UpdateProgress}"
+                             Height="8"
+                             Margin="0,0,0,8"
+                             Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}"/>
+
+                <!-- 詳細資訊 -->
+                <StackPanel Grid.Row="3"
+                            Orientation="Horizontal"
+                            Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}"
+                            Margin="0,0,0,12">
+                    <TextBlock Text="{Binding DownloadSpeed}"
+                               FontSize="11"
+                               Foreground="Gray"/>
+                    <TextBlock Text=" | "
+                               FontSize="11"
+                               Foreground="Gray"
+                               Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock Text="{Binding RemainingTime}"
+                               FontSize="11"
+                               Foreground="Gray"/>
+                    <TextBlock Text=" | "
+                               FontSize="11"
+                               Foreground="Gray"
+                               Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock Text="{Binding UpdateProgress, StringFormat={}{0:F1}%}"
+                               FontSize="11"
+                               Foreground="Gray"/>
+                </StackPanel>
+
+                <!-- 按鈕 -->
+                <StackPanel Grid.Row="4"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Left">
+                    <!-- 開始更新按鈕 -->
+                    <Button Content="開始更新"
+                            Command="{Binding StartUpdateCommand}"
+                            Width="100"
+                            Height="32"
+                            FontSize="13"
+                            Margin="0,0,12,0">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignRaisedButton}">
+                                <Setter Property="Visibility" Value="Visible"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsUpdating}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding IsCheckingUpdate}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding HasUpdate}" Value="False">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <!-- 取消更新按鈕 -->
+                    <Button Content="取消"
+                            Command="{Binding CancelUpdateCommand}"
+                            Style="{StaticResource MaterialDesignOutlinedButton}"
+                            Width="80"
+                            Height="32"
+                            FontSize="13"
+                            Visibility="{Binding IsUpdating, Converter={StaticResource BoolToVisibility}}"/>
+
+                    <!-- 重新檢查按鈕 -->
+                    <Button Content="重新檢查"
+                            Command="{Binding CheckForUpdatesCommand}"
+                            Height="32"
+                            FontSize="12"
+                            Foreground="{DynamicResource PrimaryHueMidBrush}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource MaterialDesignFlatButton}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding HasUpdate}" Value="False"/>
+                                            <Condition Binding="{Binding IsUpdating}" Value="False"/>
+                                            <Condition Binding="{Binding IsCheckingUpdate}" Value="False"/>
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </materialDesign:Card>
+
+        <!-- Status Message with Scroll -->
+        <materialDesign:Card Grid.Row="4"
                              Margin="0,16,0,0"
                              Padding="12"
                              Background="{DynamicResource MaterialDesignCardBackground}">

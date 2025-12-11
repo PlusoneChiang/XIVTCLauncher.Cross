@@ -11,10 +11,13 @@ public partial class SettingsWindow : Window
 {
     public LauncherSettings Settings { get; private set; }
     private readonly OtpService _otpService;
+    private readonly bool _isFirstRun;
 
-    public SettingsWindow(LauncherSettings settings)
+    public SettingsWindow(LauncherSettings settings, bool isFirstRun = false)
     {
         InitializeComponent();
+        _isFirstRun = isFirstRun;
+
         Settings = new LauncherSettings
         {
             Username = settings.Username,
@@ -47,6 +50,16 @@ public partial class SettingsWindow : Window
         // Set OTP settings
         AutoOtpCheckBox.IsChecked = Settings.AutoOtp;
         UpdateOtpDisplay();
+
+        // 首次使用模式：修改標題和提示
+        if (_isFirstRun)
+        {
+            Title = "首次設定 - XIV TC Launcher";
+            TitleText.Text = "首次設定";
+            FirstRunCard.Visibility = Visibility.Visible;
+            SaveButton.Content = "開始使用";
+            CancelButton.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void OnOtpCodeChanged(string code)

@@ -13,7 +13,11 @@ public partial class MainViewModel : ObservableObject
     private readonly LoginService _loginService;
     private readonly DalamudService _dalamudService;
     private readonly CredentialService _credentialService;
+    private readonly GameUpdateService _gameUpdateService;
     private LauncherSettings _settings;
+
+    // 更新相關的狀態
+    private UpdateCheckResult? _updateCheckResult;
 
     [ObservableProperty]
     private bool _isLoggingIn;
@@ -21,16 +25,206 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    // 更新相關屬性
+    [ObservableProperty]
+    private bool _isCheckingUpdate;
+
+    [ObservableProperty]
+    private bool _hasUpdate;
+
+    [ObservableProperty]
+    private bool _isUpdating;
+
+    [ObservableProperty]
+    private bool _canLogin = true;
+
+    [ObservableProperty]
+    private string _updateInfo = string.Empty;
+
+    [ObservableProperty]
+    private double _updateProgress;
+
+    [ObservableProperty]
+    private string _currentPatchName = string.Empty;
+
+    [ObservableProperty]
+    private string _downloadSpeed = string.Empty;
+
+    [ObservableProperty]
+    private string _remainingTime = string.Empty;
+
     public MainViewModel()
     {
         _settingsService = new SettingsService();
         _loginService = new LoginService();
         _dalamudService = new DalamudService();
         _credentialService = new CredentialService();
+        _gameUpdateService = new GameUpdateService();
         _settings = _settingsService.Load();
 
         // Subscribe to Dalamud status updates
         _dalamudService.StatusChanged += status => StatusMessage = status;
+
+        // Subscribe to game update service events
+        _gameUpdateService.StatusChanged += status =>
+        {
+            StatusMessage = status;
+            CurrentPatchName = status;
+        };
+        _gameUpdateService.ProgressChanged += progress => UpdateProgress = progress;
+        _gameUpdateService.DetailedProgressChanged += info =>
+        {
+            DownloadSpeed = info.FormattedSpeed;
+            RemainingTime = info.FormattedRemaining;
+        };
+
+        // 啟動時自動檢查更新
+        _ = CheckUpdateOnStartupAsync();
+    }
+
+    /// <summary>
+    /// 啟動時檢查設定並自動檢查更新
+    /// </summary>
+    private async Task CheckUpdateOnStartupAsync()
+    {
+        // 等待 UI 初始化完成
+        await Task.Delay(500);
+
+        // 首次使用：自動開啟設定視窗
+        if (string.IsNullOrWhiteSpace(_settings.GamePath))
+        {
+            StatusMessage = "首次使用，請先設定遊戲路徑";
+
+            // 在 UI 執行緒開啟設定視窗
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                var settingsWindow = new SettingsWindow(_settings, isFirstRun: true);
+                settingsWindow.Owner = Application.Current.MainWindow;
+
+                if (settingsWindow.ShowDialog() == true)
+                {
+                    _settings = settingsWindow.Settings;
+                    _settingsService.Save(_settings);
+                    StatusMessage = "設定已儲存";
+                }
+            });
+
+            // 如果設定後仍然沒有遊戲路徑，提示用戶
+            if (string.IsNullOrWhiteSpace(_settings.GamePath))
+            {
+                StatusMessage = "請先在設定中指定遊戲路徑";
+                CanLogin = false;
+                return;
+            }
+        }
+
+        await CheckForUpdatesAsync();
+    }
+
+    /// <summary>
+    /// 檢查遊戲更新
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_settings.GamePath))
+        {
+            StatusMessage = "請先在設定中指定遊戲路徑";
+            return;
+        }
+
+        IsCheckingUpdate = true;
+        CanLogin = false;
+        HasUpdate = false;
+
+        try
+        {
+            _updateCheckResult = await _gameUpdateService.CheckForUpdatesAsync(_settings.GamePath);
+
+            if (_updateCheckResult.NeedsUpdate)
+            {
+                HasUpdate = true;
+                UpdateInfo = $"發現 {_updateCheckResult.PatchCount} 個補丁，共 {_updateCheckResult.FormattedTotalSize}";
+                StatusMessage = UpdateInfo;
+                // 強制更新：有更新時不能登入
+                CanLogin = false;
+            }
+            else
+            {
+                HasUpdate = false;
+                UpdateInfo = string.Empty;
+                StatusMessage = "遊戲版本已是最新";
+                CanLogin = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"檢查更新失敗: {ex.Message}";
+            // 檢查失敗時允許登入（可能是離線）
+            CanLogin = true;
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    /// <summary>
+    /// 開始更新遊戲
+    /// </summary>
+    [RelayCommand]
+    private async Task StartUpdateAsync()
+    {
+        if (_updateCheckResult == null || !_updateCheckResult.NeedsUpdate)
+        {
+            StatusMessage = "沒有需要下載的更新";
+            return;
+        }
+
+        IsUpdating = true;
+        CanLogin = false;
+        UpdateProgress = 0;
+
+        try
+        {
+            var success = await _gameUpdateService.UpdateGameAsync(
+                _settings.GamePath,
+                _updateCheckResult.RequiredPatches);
+
+            if (success)
+            {
+                HasUpdate = false;
+                UpdateInfo = string.Empty;
+                StatusMessage = "遊戲更新完成！";
+                CanLogin = true;
+
+                // 重新檢查更新以確認
+                await CheckForUpdatesAsync();
+            }
+            else
+            {
+                StatusMessage = $"更新失敗: {_gameUpdateService.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"更新失敗: {ex.Message}";
+        }
+        finally
+        {
+            IsUpdating = false;
+        }
+    }
+
+    /// <summary>
+    /// 取消更新
+    /// </summary>
+    [RelayCommand]
+    private void CancelUpdate()
+    {
+        _gameUpdateService.Cancel();
+        StatusMessage = "更新已取消";
+        IsUpdating = false;
     }
 
     [RelayCommand]
@@ -39,6 +233,13 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(_settings.GamePath))
         {
             StatusMessage = "請先在設定中指定遊戲路徑";
+            return;
+        }
+
+        // 檢查是否有未完成的更新
+        if (HasUpdate)
+        {
+            StatusMessage = "請先完成遊戲更新";
             return;
         }
 
@@ -187,6 +388,9 @@ public partial class MainViewModel : ObservableObject
             _settings = settingsWindow.Settings;
             _settingsService.Save(_settings);
             StatusMessage = "設定已儲存";
+
+            // 設定變更後重新檢查更新
+            _ = CheckForUpdatesAsync();
         }
     }
 

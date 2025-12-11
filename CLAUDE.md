@@ -65,8 +65,45 @@ The launcher integrates with Dalamud plugin framework (from XIVLauncher/goatcorp
 - `EnableDalamud` - Toggle plugin support
 - `DalamudInjectionDelay` - Delay in milliseconds before injection
 
+## Game Update System
+
+The launcher includes automatic game update detection and patching:
+
+**Version Check API**:
+```
+POST http://patch-gamever.ffxiv.com.tw/http/win32/ffxivtc_release_tc_game/{baseVersion}/
+
+Request Body (TC Region format):
+\n                              ← 開頭換行符 (跳過 boot version hash)
+ex1\t{ex1_version}\n
+ex2\t{ex2_version}\n
+...
+
+Response:
+- 204 No Content = 不需要更新
+- 200 OK = 回傳 multipart/mixed 補丁清單
+```
+
+**Patch List Format** (multipart/mixed body):
+```
+{size}\t{totalSize}\t{count}\t{parts}\t{version}\t{hashType}\t{blockSize}\t{hashes}\t{url}
+```
+
+**Key Files**:
+- `Services/GameUpdateService.cs` - Version check and update coordination
+- `Services/PatchListParser.cs` - Local version reading (fallback for v2.txt)
+- `Services/PatchInstaller.cs` - ZiPatch application
+- `Patching/ZiPatch/` - ZiPatch implementation (from XIVLauncher.Common)
+
+**Version Files**:
+- `{GamePath}/game/ffxivgame.ver` - Base game (ex0)
+- `{GamePath}/game/sqpack/ex{n}/ex{n}.ver` - Expansions (ex1-ex5)
+
+**Reference**: Based on [XIV-on-Mac-in-TC](https://github.com/PlusoneChiang/XIV-on-Mac-in-TC) and [FFXIVQuickLauncher](https://github.com/PlusoneChiang/FFXIVQuickLauncher/tree/tc_region)
+
 ## Notes
 
 - The launcher targets the Taiwan FFXIV version specifically
 - Game executable expected at: `{GamePath}/game/ffxiv_dx11.exe`
 - Taiwan server endpoints: `neolobby01.ffxiv.com.tw`, `frontier.ffxiv.com.tw`
+- Patch server: `patch-gamever.ffxiv.com.tw`, `patch-dl.ffxiv.com.tw`
