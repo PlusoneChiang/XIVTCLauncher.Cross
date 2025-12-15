@@ -15,6 +15,7 @@ public partial class MainViewModel : ObservableObject
     private readonly DalamudService _dalamudService;
     private readonly CredentialService _credentialService;
     private readonly GameUpdateService _gameUpdateService;
+    private readonly LauncherUpdateService _launcherUpdateService;
     private LauncherSettings _settings;
 
     // 更新相關的狀態
@@ -54,6 +55,22 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _remainingTime = string.Empty;
 
+    // 啟動器更新相關屬性
+    [ObservableProperty]
+    private bool _hasLauncherUpdate;
+
+    [ObservableProperty]
+    private string _latestLauncherVersion = string.Empty;
+
+    [ObservableProperty]
+    private bool _isDownloadingLauncherUpdate;
+
+    [ObservableProperty]
+    private double _launcherUpdateProgress;
+
+    [ObservableProperty]
+    private string _launcherDownloadInfo = string.Empty;
+
     /// <summary>
     /// Application version from assembly.
     /// </summary>
@@ -66,6 +83,7 @@ public partial class MainViewModel : ObservableObject
         _dalamudService = new DalamudService();
         _credentialService = new CredentialService();
         _gameUpdateService = new GameUpdateService();
+        _launcherUpdateService = new LauncherUpdateService();
         _settings = _settingsService.Load();
 
         // Subscribe to Dalamud status updates
@@ -84,6 +102,10 @@ public partial class MainViewModel : ObservableObject
             RemainingTime = info.FormattedRemaining;
         };
 
+        // Subscribe to launcher update service events
+        _launcherUpdateService.StatusChanged += status => LauncherDownloadInfo = status;
+        _launcherUpdateService.ProgressChanged += progress => LauncherUpdateProgress = progress;
+
         // 啟動時自動檢查更新
         _ = CheckUpdateOnStartupAsync();
     }
@@ -95,6 +117,9 @@ public partial class MainViewModel : ObservableObject
     {
         // 等待 UI 初始化完成
         await Task.Delay(500);
+
+        // 背景檢查啟動器更新（不阻塞）
+        _ = CheckLauncherUpdateAsync();
 
         // 首次使用：自動開啟設定視窗
         if (string.IsNullOrWhiteSpace(_settings.GamePath))
@@ -125,6 +150,81 @@ public partial class MainViewModel : ObservableObject
         }
 
         await CheckForUpdatesAsync();
+    }
+
+    /// <summary>
+    /// 檢查啟動器是否有新版本
+    /// </summary>
+    private async Task CheckLauncherUpdateAsync()
+    {
+        try
+        {
+            var hasUpdate = await _launcherUpdateService.CheckForUpdatesAsync();
+
+            if (hasUpdate)
+            {
+                HasLauncherUpdate = true;
+                LatestLauncherVersion = $"v{_launcherUpdateService.LatestVersion}";
+            }
+        }
+        catch
+        {
+            // 靜默失敗，不影響正常使用
+        }
+    }
+
+    /// <summary>
+    /// 更新啟動器
+    /// </summary>
+    [RelayCommand]
+    private async Task UpdateLauncherAsync()
+    {
+        if (IsDownloadingLauncherUpdate)
+            return;
+
+        IsDownloadingLauncherUpdate = true;
+        LauncherUpdateProgress = 0;
+
+        try
+        {
+            var updateDir = await _launcherUpdateService.DownloadUpdateAsync();
+
+            if (!string.IsNullOrEmpty(updateDir))
+            {
+                // 下載成功，啟動更新程式並退出
+                _launcherUpdateService.LaunchUpdaterAndExit(updateDir);
+            }
+            else
+            {
+                LauncherDownloadInfo = "下載失敗，請稍後重試";
+            }
+        }
+        catch (Exception ex)
+        {
+            LauncherDownloadInfo = $"更新失敗: {ex.Message}";
+        }
+        finally
+        {
+            IsDownloadingLauncherUpdate = false;
+        }
+    }
+
+    /// <summary>
+    /// 關閉啟動器更新提示
+    /// </summary>
+    [RelayCommand]
+    private void DismissLauncherUpdate()
+    {
+        HasLauncherUpdate = false;
+    }
+
+    /// <summary>
+    /// 開啟 GitHub Releases 頁面
+    /// </summary>
+    [RelayCommand]
+    private void OpenReleasesPage()
+    {
+        _launcherUpdateService.OpenReleasesPage();
     }
 
     /// <summary>
