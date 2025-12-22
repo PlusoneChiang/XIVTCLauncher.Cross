@@ -24,6 +24,9 @@ public class DotNetRuntimeManager
     // Version info endpoints (ottercorp/aonyx)
     private const string VERSION_INFO_URL = "https://aonyx.ffxiv.wang/Dalamud/Release/VersionInfo?track=release";
 
+    // Fixed .NET Runtime version (bypass API to avoid too-new versions)
+    private const string FIXED_RUNTIME_VERSION = "9.0.11";
+
     private readonly DirectoryInfo _runtimeDirectory;
     private readonly HttpClient _httpClient;
 
@@ -87,33 +90,15 @@ public class DotNetRuntimeManager
 
     /// <summary>
     /// Fetch the required runtime version from the Dalamud version info API.
+    /// Currently uses a fixed version to avoid compatibility issues with too-new .NET versions.
     /// </summary>
     public async Task<string?> FetchRequiredVersionAsync()
     {
-        try
-        {
-            ReportStatus("取得 Dalamud 版本資訊...");
-            var json = await _httpClient.GetStringAsync(VERSION_INFO_URL);
-            var versionInfo = JsonSerializer.Deserialize<DalamudVersionInfo>(json);
-
-            if (versionInfo != null)
-            {
-                RequiredVersion = versionInfo.RuntimeVersion;
-                RuntimeRequired = versionInfo.RuntimeRequired;
-                ReportStatus($"需要 .NET Runtime: {RequiredVersion}");
-                return RequiredVersion;
-            }
-        }
-        catch (Exception ex)
-        {
-            ReportStatus($"取得版本資訊失敗: {ex.Message}");
-            // Default to 9.0.3 if fetch fails
-            RequiredVersion = "9.0.3";
-            ReportStatus($"使用預設版本: {RequiredVersion}");
-            return RequiredVersion;
-        }
-
-        return null;
+        // Use fixed version to avoid .NET 10.0 compatibility issues
+        RequiredVersion = FIXED_RUNTIME_VERSION;
+        RuntimeRequired = true;
+        ReportStatus($"使用固定 .NET Runtime 版本: {RequiredVersion}");
+        return RequiredVersion;
     }
 
     /// <summary>
