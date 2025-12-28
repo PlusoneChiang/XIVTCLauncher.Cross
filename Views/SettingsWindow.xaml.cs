@@ -10,32 +10,30 @@ namespace FFXIVSimpleLauncher.Views;
 public partial class SettingsWindow : Window
 {
     public LauncherSettings Settings { get; private set; }
-    private readonly OtpService _otpService;
     private readonly bool _isFirstRun;
 
-    public SettingsWindow(LauncherSettings settings, bool isFirstRun = false)
+    public SettingsWindow(LauncherSettings settings, bool isFirstRun = false, string? detectedGamePath = null)
     {
         InitializeComponent();
         _isFirstRun = isFirstRun;
 
+        // Copy settings (accounts are reference types, so they're shared)
         Settings = new LauncherSettings
         {
-            Username = settings.Username,
-            UseOtp = settings.UseOtp,
-            RememberPassword = settings.RememberPassword,
+            Accounts = settings.Accounts,
+            SelectedAccountId = settings.SelectedAccountId,
             GamePath = settings.GamePath,
             EnableDalamud = settings.EnableDalamud,
             DalamudInjectionDelay = settings.DalamudInjectionDelay,
             DalamudSourceMode = settings.DalamudSourceMode,
-            LocalDalamudPath = settings.LocalDalamudPath,
-            AutoOtp = settings.AutoOtp
+            LocalDalamudPath = settings.LocalDalamudPath
         };
 
-        // Initialize OTP service
-        _otpService = new OtpService();
-        _otpService.OtpCodeChanged += OnOtpCodeChanged;
-        _otpService.SecondsRemainingChanged += OnSecondsRemainingChanged;
-        _otpService.Initialize();
+        // 如果有預先偵測到的路徑，使用它
+        if (!string.IsNullOrEmpty(detectedGamePath))
+        {
+            Settings.GamePath = detectedGamePath;
+        }
 
         // Load settings into UI
         GamePathTextBox.Text = Settings.GamePath;
@@ -47,11 +45,7 @@ public partial class SettingsWindow : Window
         AutoDownloadRadio.IsChecked = Settings.DalamudSourceMode == DalamudSourceMode.AutoDownload;
         LocalPathRadio.IsChecked = Settings.DalamudSourceMode == DalamudSourceMode.LocalPath;
 
-        // Set OTP settings
-        AutoOtpCheckBox.IsChecked = Settings.AutoOtp;
-        UpdateOtpDisplay();
-
-        // 首次使用模式：修改標題和提示
+        // First run mode
         if (_isFirstRun)
         {
             Title = "首次設定 - XIV TC Launcher";
@@ -62,79 +56,27 @@ public partial class SettingsWindow : Window
         }
     }
 
-    private void OnOtpCodeChanged(string code)
+    private void AutoDetectButton_Click(object sender, RoutedEventArgs e)
     {
-        Dispatcher.Invoke(() =>
-        {
-            CurrentOtpText.Text = string.IsNullOrEmpty(code) ? "------" : code;
-        });
-    }
+        var detector = new GamePathDetector();
+        var detectedPath = detector.DetectGamePath();
 
-    private void OnSecondsRemainingChanged(int seconds)
-    {
-        Dispatcher.Invoke(() =>
+        if (detectedPath != null)
         {
-            OtpCountdownText.Text = $"({seconds}s)";
-        });
-    }
-
-    private void UpdateOtpDisplay()
-    {
-        if (_otpService.IsConfigured)
-        {
-            OtpSecretTextBox.Text = "********（已設定）";
-            OtpSecretTextBox.IsReadOnly = true;
-            CurrentOtpText.Text = _otpService.CurrentCode;
-            OtpCountdownText.Text = $"({_otpService.SecondsRemaining}s)";
+            GamePathTextBox.Text = detectedPath;
+            MessageBox.Show(
+                $"已找到遊戲路徑：\n{detectedPath}",
+                "偵測成功",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
         }
         else
         {
-            OtpSecretTextBox.Text = "";
-            OtpSecretTextBox.IsReadOnly = false;
-            CurrentOtpText.Text = "------";
-            OtpCountdownText.Text = "(--s)";
-        }
-    }
-
-    private void SaveOtpSecret_Click(object sender, RoutedEventArgs e)
-    {
-        if (_otpService.IsConfigured)
-        {
-            MessageBox.Show("OTP 密鑰已設定。如需更換，請先清除現有密鑰。", "已設定", MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-
-        var secret = OtpSecretTextBox.Text.Trim();
-        if (string.IsNullOrEmpty(secret))
-        {
-            MessageBox.Show("請輸入 OTP 密鑰。", "需要密鑰", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
-
-        if (_otpService.SetSecret(secret))
-        {
-            MessageBox.Show("OTP 密鑰已儲存！現在會自動產生 OTP 驗證碼。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-            UpdateOtpDisplay();
-        }
-        else
-        {
-            MessageBox.Show("無效的 OTP 密鑰格式。請確認輸入的是 Base32 編碼的密鑰。", "格式錯誤", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
-    }
-
-    private void ClearOtpSecret_Click(object sender, RoutedEventArgs e)
-    {
-        var result = MessageBox.Show(
-            "確定要清除 OTP 密鑰嗎？\n\n清除後需要重新輸入密鑰才能使用自動 OTP 功能。",
-            "確認清除",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-        if (result == MessageBoxResult.Yes)
-        {
-            _otpService.ClearSecret();
-            UpdateOtpDisplay();
-            MessageBox.Show("OTP 密鑰已清除。", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                "無法自動偵測遊戲路徑。\n\n請使用「瀏覽」按鈕手動選擇遊戲安裝資料夾。",
+                "偵測失敗",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
         }
     }
 
@@ -217,7 +159,6 @@ public partial class SettingsWindow : Window
             ? DalamudSourceMode.AutoDownload
             : DalamudSourceMode.LocalPath;
         Settings.LocalDalamudPath = LocalDalamudPathTextBox.Text;
-        Settings.AutoOtp = AutoOtpCheckBox.IsChecked ?? false;
 
         // Validate local Dalamud path if using local path mode
         if (Settings.EnableDalamud && Settings.DalamudSourceMode == DalamudSourceMode.LocalPath)

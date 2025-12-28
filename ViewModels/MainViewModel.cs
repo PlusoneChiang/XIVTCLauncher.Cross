@@ -147,12 +147,29 @@ public partial class MainViewModel : ObservableObject
         // 首次使用：自動開啟設定視窗
         if (string.IsNullOrWhiteSpace(_settings.GamePath))
         {
-            StatusMessage = "首次使用，請先設定遊戲路徑";
+            // 嘗試自動偵測遊戲路徑
+            StatusMessage = "正在偵測遊戲路徑...";
+            string? detectedPath = null;
+
+            await Task.Run(() =>
+            {
+                var detector = new GamePathDetector();
+                detectedPath = detector.DetectGamePath();
+            });
+
+            if (detectedPath != null)
+            {
+                StatusMessage = "已偵測到遊戲路徑";
+            }
+            else
+            {
+                StatusMessage = "首次使用，請設定遊戲路徑";
+            }
 
             // 在 UI 執行緒開啟設定視窗
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                var settingsWindow = new SettingsWindow(_settings, isFirstRun: true);
+                var settingsWindow = new SettingsWindow(_settings, isFirstRun: true, detectedGamePath: detectedPath);
                 settingsWindow.Owner = Application.Current.MainWindow;
 
                 if (settingsWindow.ShowDialog() == true)
