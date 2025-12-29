@@ -737,44 +737,72 @@ public partial class MainViewModel : ObservableObject
             if (injectorOutput.Contains("2147942403") || injectorOutput.Contains("Initialize returned"))
             {
                 var runtimePath = _dalamudService.GetRuntimeDirectoryPath();
-                var result = MessageBox.Show(
-                    $"注入器執行完成，但 Dalamud 初始化失敗！\n\n" +
-                    $"錯誤: 找不到 .NET Runtime 路徑\n\n" +
-                    $"這是因為遊戲進程缺少 DALAMUD_RUNTIME 環境變數。\n" +
-                    $"從 Steam 或其他方式啟動的遊戲不會自動設定此變數。\n\n" +
-                    $"是否要自動設定系統環境變數？\n" +
-                    $"(設定後需重新啟動遊戲才能生效)\n\n" +
-                    $"變數值: {runtimePath}",
-                    "設定環境變數？",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
 
-                if (result == MessageBoxResult.Yes)
+                // 檢查環境變數是否已經設定
+                var existingEnvVar = Environment.GetEnvironmentVariable("DALAMUD_RUNTIME", EnvironmentVariableTarget.User);
+
+                if (!string.IsNullOrEmpty(existingEnvVar))
                 {
-                    try
-                    {
-                        // 只設定 DALAMUD_RUNTIME (不設定 DOTNET_ROOT，因為會影響其他 .NET 應用程式)
-                        Environment.SetEnvironmentVariable("DALAMUD_RUNTIME", runtimePath, EnvironmentVariableTarget.User);
+                    // 環境變數已設定，但仍然失敗
+                    MessageBox.Show(
+                        $"注入失敗！\n\n" +
+                        $"DALAMUD_RUNTIME 環境變數已設定為:\n{existingEnvVar}\n\n" +
+                        $"但遊戲進程仍然無法讀取。這可能是因為：\n\n" +
+                        $"1. Steam 需要完全關閉後重新啟動\n" +
+                        $"   (在系統托盤右鍵點擊 Steam → 退出)\n\n" +
+                        $"2. 或者需要登出 Windows 再重新登入\n\n" +
+                        $"3. 某些啟動器不會傳遞環境變數給遊戲\n\n" +
+                        $"建議：使用本啟動器的「登入」功能啟動遊戲，\n" +
+                        $"這樣可以確保 Dalamud 正常運作。",
+                        "環境變數已設定但注入失敗",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Warning);
+                }
+                else
+                {
+                    var result = MessageBox.Show(
+                        $"注入器執行完成，但 Dalamud 初始化失敗！\n\n" +
+                        $"錯誤: 找不到 .NET Runtime 路徑\n\n" +
+                        $"這是因為遊戲進程缺少 DALAMUD_RUNTIME 環境變數。\n" +
+                        $"從 Steam 或其他方式啟動的遊戲不會自動設定此變數。\n\n" +
+                        $"是否要自動設定系統環境變數？\n" +
+                        $"(設定後需完全關閉 Steam 再重新啟動)\n\n" +
+                        $"變數值: {runtimePath}",
+                        "設定環境變數？",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
 
-                        MessageBox.Show(
-                            $"環境變數已設定成功！\n\n" +
-                            $"DALAMUD_RUNTIME = {runtimePath}\n\n" +
-                            $"請關閉遊戲，然後重新從 Steam 啟動遊戲，\n" +
-                            $"再使用手動注入功能。",
-                            "設定成功",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    }
-                    catch (Exception envEx)
+                    if (result == MessageBoxResult.Yes)
                     {
-                        MessageBox.Show(
-                            $"設定環境變數失敗: {envEx.Message}\n\n" +
-                            $"請手動設定：\n" +
-                            $"變數名: DALAMUD_RUNTIME\n" +
-                            $"變數值: {runtimePath}",
-                            "設定失敗",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
+                        try
+                        {
+                            // 只設定 DALAMUD_RUNTIME (不設定 DOTNET_ROOT，因為會影響其他 .NET 應用程式)
+                            Environment.SetEnvironmentVariable("DALAMUD_RUNTIME", runtimePath, EnvironmentVariableTarget.User);
+
+                            MessageBox.Show(
+                                $"環境變數已設定成功！\n\n" +
+                                $"DALAMUD_RUNTIME = {runtimePath}\n\n" +
+                                $"重要步驟：\n" +
+                                $"1. 關閉遊戲\n" +
+                                $"2. 完全退出 Steam (系統托盤右鍵 → 退出)\n" +
+                                $"3. 重新啟動 Steam\n" +
+                                $"4. 從 Steam 啟動遊戲\n" +
+                                $"5. 再使用手動注入功能",
+                                "設定成功",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Information);
+                        }
+                        catch (Exception envEx)
+                        {
+                            MessageBox.Show(
+                                $"設定環境變數失敗: {envEx.Message}\n\n" +
+                                $"請手動設定：\n" +
+                                $"變數名: DALAMUD_RUNTIME\n" +
+                                $"變數值: {runtimePath}",
+                                "設定失敗",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Error);
+                        }
                     }
                 }
             }
