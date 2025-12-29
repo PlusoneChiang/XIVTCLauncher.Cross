@@ -608,6 +608,7 @@ public class DalamudService
     /// Inject Dalamud using command-line arguments.
     /// Returns the injector output for diagnostic purposes.
     /// </summary>
+    /// <param name="isManualInject">true 為手動注入（使用新參數），false 為自動注入（使用原參數格式）</param>
     private string InjectDalamud(
         FileInfo runner,
         int gamePid,
@@ -619,21 +620,45 @@ public class DalamudService
         int language,
         int delayInitializeMs,
         string? runtimePath,
-        bool safeMode = false)
+        bool safeMode = false,
+        bool isManualInject = false)
     {
-        var launchArguments = new List<string>
+        var launchArguments = new List<string>();
+
+        if (isManualInject)
         {
-            "inject",
-            gamePid.ToString(),
-            $"--dalamud-working-directory={workingDirectory}",
-            $"--dalamud-configuration-path={configurationPath}",
-            $"--dalamud-plugin-directory={pluginDirectory}",
-            $"--dalamud-asset-directory={assetDirectory}",
-            $"--dalamud-client-language={language}",
-            $"--dalamud-delay-initialize={delayInitializeMs}",
-            "--fix-acl",
-            "--se-debug-privilege"
-        };
+            // 手動注入：使用新參數格式（針對已運行的遊戲）
+            launchArguments.AddRange(new[]
+            {
+                "inject",
+                gamePid.ToString(),
+                $"--dalamud-working-directory={workingDirectory}",
+                $"--dalamud-configuration-path={configurationPath}",
+                $"--dalamud-plugin-directory={pluginDirectory}",
+                $"--dalamud-asset-directory={assetDirectory}",
+                $"--dalamud-client-language={language}",
+                $"--dalamud-delay-initialize={delayInitializeMs}",
+                "--fix-acl",
+                "--se-debug-privilege"
+            });
+        }
+        else
+        {
+            // 自動注入：使用原參數格式（v1.14.2 格式）
+            launchArguments.AddRange(new[]
+            {
+                "inject",
+                "-v",
+                gamePid.ToString(),
+                $"--dalamud-working-directory=\"{workingDirectory}\"",
+                $"--dalamud-configuration-path=\"{configurationPath}\"",
+                $"--dalamud-plugin-directory=\"{pluginDirectory}\"",
+                $"--dalamud-dev-plugin-directory=\"{devPluginDirectory}\"",
+                $"--dalamud-asset-directory=\"{assetDirectory}\"",
+                $"--dalamud-client-language={language}",
+                $"--dalamud-delay-initialize={delayInitializeMs}"
+            });
+        }
 
         if (safeMode)
         {
@@ -641,7 +666,7 @@ public class DalamudService
         }
 
         var argumentString = string.Join(" ", launchArguments);
-        ReportStatus($"執行: Dalamud.Injector.exe inject {gamePid} --veh --dotnet-runtime=...");
+        ReportStatus($"執行: Dalamud.Injector.exe inject {gamePid} ...");
 
         var psi = new ProcessStartInfo(runner.FullName)
         {
@@ -785,7 +810,9 @@ public class DalamudService
                 assetDir,
                 5, // Language: 5 = ChineseTraditional (Taiwan)
                 injectionDelay > 0 ? injectionDelay : 10000,
-                runtimePath
+                runtimePath,
+                safeMode: false,
+                isManualInject: true  // 手動注入使用新參數格式
             );
 
             ReportStatus("Dalamud 注入完成");
