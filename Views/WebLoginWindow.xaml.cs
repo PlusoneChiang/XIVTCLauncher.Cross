@@ -80,6 +80,14 @@ public class LoginBridge
                     var sessionBody = await sessionResponse.Content.ReadAsStringAsync();
 
                     var sessionJson = JsonDocument.Parse(sessionBody);
+
+                    // Check for error response (e.g., subscription expired)
+                    if (sessionJson.RootElement.TryGetProperty("error", out var errorElement))
+                    {
+                        var errorMessage = errorElement.GetString();
+                        return JsonSerializer.Serialize(new { error = errorMessage });
+                    }
+
                     if (sessionJson.RootElement.TryGetProperty("sessionId", out var sessionElement))
                     {
                         var sessionId = sessionElement.GetString();

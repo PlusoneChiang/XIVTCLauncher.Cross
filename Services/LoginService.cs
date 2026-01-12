@@ -140,6 +140,12 @@ public class LoginService
 
             var sessionResult = await sessionResponse.Content.ReadFromJsonAsync<LauncherSessionResponse>();
 
+            // Check for error response (e.g., subscription expired)
+            if (!string.IsNullOrEmpty(sessionResult?.Error))
+            {
+                return new LoginResult { Success = false, ErrorMessage = sessionResult.Error };
+            }
+
             if (sessionResult?.SessionId == null)
             {
                 return new LoginResult { Success = false, ErrorMessage = $"Failed to get session: {sessionResponseText}" };
@@ -220,6 +226,9 @@ public class LauncherSessionResponse
 {
     [JsonPropertyName("sessionId")]
     public string? SessionId { get; set; }
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
 }
 
 public class LoginResult
